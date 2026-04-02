@@ -104,7 +104,7 @@ app.put('/api/items/:id', (req, res) => {
   const { id } = req.params;
   const { name, price, cost_price, category_id, sku, stock, image_url, low_stock_threshold } = req.body;
   db.prepare('UPDATE items SET name = ?, price = ?, cost_price = ?, category_id = ?, sku = ?, stock = ?, image_url = ?, low_stock_threshold = ? WHERE id = ?').run(name, price, cost_price || 0, category_id, sku, stock, image_url || null, low_stock_threshold || 5, id);
-  db.prepare('INSERT INTO edit_logs (table_name, row_id, action, details) VALUES (?, ?, ?, ?)').run('items', id, 'UPDATE', `Updated item: ${name}`);
+  try { db.prepare('INSERT INTO edit_logs (table_name, row_id, action, details) VALUES (?, ?, ?, ?)').run('items', id, 'UPDATE', `Updated item: ${name}`); } catch(e) {}
   res.json({ success: true });
 });
 
@@ -113,6 +113,7 @@ app.post('/api/items/:id/adjust-stock', (req, res) => {
   const { adjustment, reason } = req.body;
   db.prepare('UPDATE items SET stock = stock + ? WHERE id = ?').run(adjustment, id);
   db.prepare('INSERT INTO stock_adjustments (item_id, adjustment, reason) VALUES (?, ?, ?)').run(id, adjustment, reason || null);
+  db.prepare('INSERT INTO edit_logs (table_name, row_id, action, details) VALUES (?, ?, ?, ?)').run('items', id, 'ADJUST_STOCK', `Stock adjusted by ${adjustment}. Reason: ${reason || 'None'}`);
   res.json({ success: true });
 });
 
@@ -224,6 +225,7 @@ app.get('/api/edit-logs', (req, res) => {
     const logs = db.prepare('SELECT * FROM edit_logs ORDER BY timestamp DESC LIMIT 100').all();
     res.json(logs);
   } catch (err) {
+    console.error('Error fetching edit logs:', err);
     res.json([]);
   }
 });
