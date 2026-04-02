@@ -25,8 +25,11 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS edit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, table_name TEXT, row_id INTEGER, action TEXT, details TEXT, username TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP);
 `);
 
+try { db.exec("ALTER TABLE branches ADD COLUMN tax_rate TEXT DEFAULT ''"); } catch(e) {}
+try { db.exec("ALTER TABLE branches ADD COLUMN vat_id TEXT DEFAULT ''"); } catch(e) {}
 try { db.exec("ALTER TABLE sales ADD COLUMN customer_id INTEGER"); } catch(e) {}
 try { db.exec("ALTER TABLE sales ADD COLUMN timestamp DATETIME DEFAULT CURRENT_TIMESTAMP"); } catch(e) {}
+try { db.exec("ALTER TABLE stock_adjustments ADD COLUMN timestamp DATETIME DEFAULT CURRENT_TIMESTAMP"); } catch(e) {}
 
 const seed = db.transaction(() => {
   const insert = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
