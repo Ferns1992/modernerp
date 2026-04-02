@@ -15,14 +15,14 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS branches (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, address TEXT, contact TEXT);
   CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password_hash TEXT, role TEXT);
   CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE);
-  CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, price REAL, cost_price REAL DEFAULT 0, category_id INTEGER, sku TEXT, stock INTEGER DEFAULT 0);
-  CREATE TABLE IF NOT EXISTS sales (id INTEGER PRIMARY KEY AUTOINCREMENT, subtotal REAL, tax REAL, total REAL, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, payment_method TEXT);
+  CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, price REAL, cost_price REAL DEFAULT 0, category_id INTEGER, sku TEXT, stock INTEGER DEFAULT 0, image_url TEXT, low_stock_threshold INTEGER DEFAULT 5);
+  CREATE TABLE IF NOT EXISTS sales (id INTEGER PRIMARY KEY AUTOINCREMENT, subtotal REAL, tax REAL, total REAL, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, payment_method TEXT, status TEXT DEFAULT 'completed');
   CREATE TABLE IF NOT EXISTS sale_items (id INTEGER PRIMARY KEY AUTOINCREMENT, sale_id INTEGER, item_id INTEGER, quantity INTEGER, price_at_sale REAL);
   CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
-  CREATE TABLE IF NOT EXISTS payment_methods (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE);
+  CREATE TABLE IF NOT EXISTS payment_methods (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, is_active BOOLEAN DEFAULT 1);
   CREATE TABLE IF NOT EXISTS customers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, phone TEXT, email TEXT, address TEXT);
   CREATE TABLE IF NOT EXISTS stock_adjustments (id INTEGER PRIMARY KEY AUTOINCREMENT, item_id INTEGER, adjustment INTEGER, reason TEXT, username TEXT);
-  CREATE TABLE IF NOT EXISTS edit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, table_name TEXT, row_id INTEGER, action TEXT, details TEXT);
+  CREATE TABLE IF NOT EXISTS edit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, table_name TEXT, row_id INTEGER, action TEXT, details TEXT, username TEXT);
 `);
 
 const seed = db.transaction(() => {
@@ -117,7 +117,28 @@ app.post('/api/auth/login', (req, res) => {
 });
 
 app.get('/api/payment-methods', (req, res) => {
-  res.json(db.prepare('SELECT * FROM payment_methods WHERE is_active = 1').all());
+  try {
+    res.json(db.prepare('SELECT * FROM payment_methods').all());
+  } catch (e) {
+    res.json([]);
+  }
+});
+
+const uploadDir = '/tmp/uploads';
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+app.use('/uploads', express.static(uploadDir));
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => cb(null, Date.now() + '-' + Math.round(Math.random() * 1E9) + path.extname(file.originalname))
+});
+const upload = multer({ storage });
+
+app.post('/api/upload', upload.single('image'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  res.json({ url: `/uploads/${req.file.filename}` });
 });
 
 app.get('/api/customers', (req, res) => {
