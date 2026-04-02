@@ -2090,13 +2090,55 @@ const CustomersSection = ({ currentUser, settings }: { currentUser: any, setting
 
               {/* Customer Info */}
               <div className="card p-6">
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/30 rounded-2xl flex items-center justify-center text-indigo-600">
-                    <User size={32} />
+                <div className="flex items-center justify-between gap-4 mb-6">
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/30 rounded-2xl flex items-center justify-center text-indigo-600">
+                      <User size={32} />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-slate-900 dark:text-white">{selectedCustomer.name}</h3>
+                      <p className="text-slate-500">{selectedCustomer.email || 'No email'}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">{selectedCustomer.name}</h3>
-                    <p className="text-slate-500">{selectedCustomer.email || 'No email'}</p>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => {
+                        const newName = prompt('Edit Name:', selectedCustomer.name);
+                        if (newName !== null) {
+                          const newPhone = prompt('Edit Phone:', selectedCustomer.phone || '');
+                          const newEmail = prompt('Edit Email:', selectedCustomer.email || '');
+                          const newAddress = prompt('Edit Address:', selectedCustomer.address || '');
+                          fetch(`/api/customers/${selectedCustomer.id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ name: newName, phone: newPhone, email: newEmail, address: newAddress })
+                          }).then(res => {
+                            if (res.ok) {
+                              setSelectedCustomer({ ...selectedCustomer, name: newName, phone: newPhone, email: newEmail, address: newAddress });
+                              fetchCustomers(searchQuery);
+                            }
+                          });
+                        }
+                      }}
+                      className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 hover:bg-indigo-100"
+                    >
+                      <Edit size={18} />
+                    </button>
+                    <button 
+                      onClick={() => {
+                        if (confirm('Delete this customer?')) {
+                          fetch(`/api/customers/${selectedCustomer.id}`, { method: 'DELETE' }).then(res => {
+                            if (res.ok) {
+                              setSelectedCustomer(null);
+                              fetchCustomers(searchQuery);
+                            }
+                          });
+                        }
+                      }}
+                      className="p-2 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 hover:bg-red-100"
+                    >
+                      <Trash2 size={18} />
+                    </button>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
