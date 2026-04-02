@@ -11,7 +11,7 @@ COPY . .
 
 RUN find . -name "*.ts" -exec dos2unix {} \; 2>/dev/null || true
 
-RUN npx tsc server.ts --outDir . --skipLibCheck --module nodenext --moduleResolution nodenext --esModuleInterop --target es2020
+RUN npx tsc server.ts --outDir . --skipLibCheck --module CommonJS --moduleResolution node --esModuleInterop --target es2020 --allowSyntheticDefaultImports
 
 EXPOSE 4000
 
