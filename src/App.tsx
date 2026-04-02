@@ -1070,7 +1070,7 @@ const SettingsPanel = ({ settings, onUpdate, currentUser }: { settings: Settings
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-4 pt-4 border-t border-slate-100 dark:border-slate-700">
+            <div className="flex flex-col sm:flex-row items-center gap-4 pt-4 border-t border-slate-100 dark:border-slate-700">
             <button 
               type="submit" 
               className="btn btn-primary w-full sm:w-auto px-8 py-3 text-sm font-bold uppercase tracking-widest"
@@ -1082,6 +1082,68 @@ const SettingsPanel = ({ settings, onUpdate, currentUser }: { settings: Settings
                 {message}
               </span>
             )}
+          </div>
+
+          <div className="pt-6 border-t border-slate-100 dark:border-slate-700">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-4">Database Backup</h3>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <button 
+                onClick={async () => {
+                  try {
+                    const res = await fetch('/api/db/export');
+                    if (res.ok) {
+                      const blob = await res.blob();
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `modernerp_backup_${new Date().toISOString().split('T')[0]}.json`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }
+                  } catch (err) {
+                    alert('Export failed');
+                  }
+                }}
+                className="btn bg-emerald-600 text-white hover:bg-emerald-700 px-6 py-3 text-sm font-bold uppercase tracking-widest"
+              >
+                Export Database
+              </button>
+              <label className="btn bg-indigo-600 text-white hover:bg-indigo-700 px-6 py-3 text-sm font-bold uppercase tracking-widest cursor-pointer">
+                Import Database
+                <input 
+                  type="file" 
+                  accept=".json"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = async (event) => {
+                      try {
+                        const data = JSON.parse(event.target?.result as string);
+                        const mode = confirm('Click OK to REPLACE all existing data, or Cancel to MERGE/ADD data?') ? 'replace' : 'merge';
+                        const res = await fetch('/api/db/import', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ data, mode })
+                        });
+                        const result = await res.json();
+                        if (res.ok) {
+                          alert('Database imported successfully! Please refresh the page.');
+                          window.location.reload();
+                        } else {
+                          alert('Import failed: ' + result.error);
+                        }
+                      } catch (err) {
+                        alert('Invalid file format');
+                      }
+                    };
+                    reader.readAsText(file);
+                  }}
+                />
+              </label>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">Export saves all data to a JSON file. Import restores data from a backup file.</p>
           </div>
         </form>
       </div>

@@ -479,6 +479,77 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
+app.get('/api/db/export', (req, res) => {
+  try {
+    const tables = ['branches', 'users', 'categories', 'items', 'sales', 'sale_items', 'settings', 'payment_methods', 'customers', 'stock_adjustments', 'edit_logs'];
+    const data = {};
+    for (const table of tables) {
+      try {
+        data[table] = db.prepare(`SELECT * FROM ${table}`).all();
+      } catch(e) {
+        data[table] = [];
+      }
+    }
+    res.setHeader('Content-Disposition', `attachment; filename=modernerp_backup_${new Date().toISOString().split('T')[0]}.json`);
+    res.setHeader('Content-Type', 'application/json');
+    res.json(data);
+  } catch(e) {
+    res.status(500).json({ error: 'Export failed' });
+  }
+});
+
+app.post('/api/db/import', (req, res) => {
+  const { data, mode } = req.body;
+  if (!data) return res.status(400).json({ error: 'No data provided' });
+  
+  try {
+    const transaction = db.transaction(() => {
+      if (mode === 'replace') {
+        db.exec('DELETE FROM sale_items; DELETE FROM sales; DELETE FROM items; DELETE FROM categories; DELETE FROM customers; DELETE FROM stock_adjustments; DELETE FROM edit_logs; DELETE FROM payment_methods; DELETE FROM settings; DELETE FROM users; DELETE FROM branches;');
+      }
+      
+      if (data.branches) for (const r of data.branches) {
+        try { db.prepare('INSERT OR REPLACE INTO branches (id, name, address, contact, tax_rate, vat_id) VALUES (?, ?, ?, ?, ?, ?)').run(r.id, r.name, r.address, r.contact, r.tax_rate, r.vat_id); } catch(e) {}
+      }
+      if (data.users) for (const r of data.users) {
+        try { db.prepare('INSERT OR REPLACE INTO users (id, username, password_hash, role, branch_id) VALUES (?, ?, ?, ?, ?)').run(r.id, r.username, r.password_hash, r.role, r.branch_id); } catch(e) {}
+      }
+      if (data.categories) for (const r of data.categories) {
+        try { db.prepare('INSERT OR REPLACE INTO categories (id, name) VALUES (?, ?)').run(r.id, r.name); } catch(e) {}
+      }
+      if (data.items) for (const r of data.items) {
+        try { db.prepare('INSERT OR REPLACE INTO items (id, name, price, cost_price, category_id, sku, stock, image_url, low_stock_threshold) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(r.id, r.name, r.price, r.cost_price, r.category_id, r.sku, r.stock, r.image_url, r.low_stock_threshold); } catch(e) {}
+      }
+      if (data.sales) for (const r of data.sales) {
+        try { db.prepare('INSERT OR REPLACE INTO sales (id, subtotal, tax, total, timestamp, payment_method, customer_id, branch_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(r.id, r.subtotal, r.tax, r.total, r.timestamp, r.payment_method, r.customer_id, r.branch_id, r.status); } catch(e) {}
+      }
+      if (data.sale_items) for (const r of data.sale_items) {
+        try { db.prepare('INSERT OR REPLACE INTO sale_items (id, sale_id, item_id, quantity, price_at_sale) VALUES (?, ?, ?, ?, ?)').run(r.id, r.sale_id, r.item_id, r.quantity, r.price_at_sale); } catch(e) {}
+      }
+      if (data.customers) for (const r of data.customers) {
+        try { db.prepare('INSERT OR REPLACE INTO customers (id, name, phone, email, address) VALUES (?, ?, ?, ?, ?)').run(r.id, r.name, r.phone, r.email, r.address); } catch(e) {}
+      }
+      if (data.payment_methods) for (const r of data.payment_methods) {
+        try { db.prepare('INSERT OR REPLACE INTO payment_methods (id, name, is_active) VALUES (?, ?, ?)').run(r.id, r.name, r.is_active); } catch(e) {}
+      }
+      if (data.settings) for (const r of data.settings) {
+        try { db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(r.key, r.value); } catch(e) {}
+      }
+      if (data.stock_adjustments) for (const r of data.stock_adjustments) {
+        try { db.prepare('INSERT OR REPLACE INTO stock_adjustments (id, item_id, adjustment, reason, username, timestamp) VALUES (?, ?, ?, ?, ?, ?)').run(r.id, r.item_id, r.adjustment, r.reason, r.username, r.timestamp); } catch(e) {}
+      }
+      if (data.edit_logs) for (const r of data.edit_logs) {
+        try { db.prepare('INSERT OR REPLACE INTO edit_logs (id, table_name, row_id, action, details, username, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)').run(r.id, r.table_name, r.row_id, r.action, r.details, r.username, r.timestamp); } catch(e) {}
+      }
+    });
+    transaction();
+    res.json({ success: true, message: 'Database imported successfully' });
+  } catch(e) {
+    console.error('Import error:', e);
+    res.status(500).json({ error: 'Import failed: ' + e.message });
+  }
+});
+
 const PORT = Number(process.env.PORT) || 4000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://localhost:${PORT}`);
