@@ -12,7 +12,7 @@ const dbPath = process.env.DATABASE_PATH || 'pos.db';
 let db = new Database(dbPath);
 
 db.exec(`
-  CREATE TABLE IF NOT EXISTS branches (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, address TEXT, contact TEXT, tax_rate TEXT DEFAULT '');
+  CREATE TABLE IF NOT EXISTS branches (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, address TEXT, contact TEXT, tax_rate TEXT DEFAULT '', vat_id TEXT DEFAULT '');
   CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password_hash TEXT, role TEXT);
   CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE);
   CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, price REAL, cost_price REAL DEFAULT 0, category_id INTEGER, sku TEXT, stock INTEGER DEFAULT 0, image_url TEXT, low_stock_threshold INTEGER DEFAULT 5);
@@ -77,11 +77,11 @@ app.get('/api/branches', (req, res) => {
 });
 
 app.post('/api/branches', (req, res) => {
-  const { name, address, contact, tax_rate } = req.body;
+  const { name, address, contact, tax_rate, vat_id } = req.body;
   if (!name) return res.status(400).json({ error: 'Name is required' });
   try {
-    const info = db.prepare('INSERT INTO branches (name, address, contact, tax_rate) VALUES (?, ?, ?, ?)').run(name, address || '', contact || '', tax_rate || '');
-    res.json({ id: info.lastInsertRowid, name, address, contact, tax_rate });
+    const info = db.prepare('INSERT INTO branches (name, address, contact, tax_rate, vat_id) VALUES (?, ?, ?, ?, ?)').run(name, address || '', contact || '', tax_rate || '', vat_id || '');
+    res.json({ id: info.lastInsertRowid, name, address, contact, tax_rate, vat_id });
   } catch (err) {
     res.status(400).json({ error: 'Branch already exists' });
   }
@@ -89,8 +89,8 @@ app.post('/api/branches', (req, res) => {
 
 app.put('/api/branches/:id', (req, res) => {
   const { id } = req.params;
-  const { name, address, contact, tax_rate } = req.body;
-  db.prepare('UPDATE branches SET name = ?, address = ?, contact = ?, tax_rate = ? WHERE id = ?').run(name, address || '', contact || '', tax_rate || '', id);
+  const { name, address, contact, tax_rate, vat_id } = req.body;
+  db.prepare('UPDATE branches SET name = ?, address = ?, contact = ?, tax_rate = ?, vat_id = ? WHERE id = ?').run(name, address || '', contact || '', tax_rate || '', vat_id || '', id);
   res.json({ success: true });
 });
 
