@@ -3259,6 +3259,10 @@ export default function App() {
       });
       if (res.ok) {
         fetchPendingOrders();
+        // Reset notification count when order is completed
+        if (status === 'completed') {
+          setNewOrdersCount(0);
+        }
       } else {
         alert('Failed to update preparation status');
       }
