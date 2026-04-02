@@ -196,6 +196,27 @@ app.get('/api/reports/summary', (req, res) => {
   res.json({ summary, items });
 });
 
+app.get('/api/reports/inventory', (req, res) => {
+  const items = db.prepare(`SELECT items.*, categories.name as category_name FROM items LEFT JOIN categories ON items.category_id = categories.id`).all();
+  const itemsWithValuation = items.map(item => {
+    const valuation = (item.stock || 0) * (item.cost_price || 0);
+    const potential_profit = (item.stock || 0) * ((item.price || 0) - (item.cost_price || 0));
+    let status = 'normal';
+    if (item.stock <= 0) status = 'out';
+    else if (item.stock <= (item.low_stock_threshold || 5)) status = 'low';
+    return { ...item, valuation, potential_profit, status };
+  });
+  const summary = {
+    total_items: items.length,
+    total_stock: items.reduce((sum, item) => sum + (item.stock || 0), 0),
+    total_valuation: itemsWithValuation.reduce((sum, item) => sum + item.valuation, 0),
+    total_potential_profit: itemsWithValuation.reduce((sum, item) => sum + item.potential_profit, 0),
+    low_stock_count: itemsWithValuation.filter(item => item.status === 'low').length,
+    out_of_stock_count: itemsWithValuation.filter(item => item.status === 'out').length,
+  };
+  res.json({ items: itemsWithValuation, summary });
+});
+
 app.use(express.static(path.join(__dirname, 'dist')));
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
