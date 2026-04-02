@@ -9,7 +9,7 @@ RUN npm install
 
 COPY . .
 
-RUN mkdir -p dist && cp index.html dist/
+RUN npm run build
 
 EXPOSE 4000
 
