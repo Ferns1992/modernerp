@@ -346,8 +346,10 @@ app.post('/api/sales', (req, res) => {
   console.log('Sale created:', { subtotal, tax, total, payment_method, customer_id, branch_id, timestamp, status });
   if (!items || items.length === 0) return res.status(400).json({ error: 'Cart is empty' });
   
+  const saleTimestamp = timestamp || new Date().toISOString();
+  
   const transaction = db.transaction(() => {
-    const saleInfo = db.prepare('INSERT INTO sales (subtotal, tax, total, payment_method, customer_id, branch_id, timestamp, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(subtotal, tax, total, payment_method, customer_id || null, branch_id || null, timestamp || null, status || 'completed');
+    const saleInfo = db.prepare('INSERT INTO sales (subtotal, tax, total, payment_method, customer_id, branch_id, timestamp, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(subtotal, tax, total, payment_method, customer_id || null, branch_id || null, saleTimestamp, status || 'completed');
     const saleId = saleInfo.lastInsertRowid;
     
     for (const item of items) {
