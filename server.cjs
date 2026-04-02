@@ -478,11 +478,6 @@ app.get('/api/edit-logs', (req, res) => {
   }
 });
 
-app.use(express.static(path.join(__dirname, 'dist')));
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
-});
-
 app.get('/api/db/export', (req, res) => {
   try {
     const tables = ['branches', 'users', 'categories', 'items', 'sales', 'sale_items', 'settings', 'payment_methods', 'customers', 'stock_adjustments', 'edit_logs'];
@@ -554,6 +549,11 @@ app.post('/api/db/import', (req, res) => {
     console.error('Import error:', e);
     res.status(500).json({ error: 'Import failed: ' + e.message });
   }
+});
+
+app.use(express.static(path.join(__dirname, 'dist')));
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 const PORT = Number(process.env.PORT) || 4000;
