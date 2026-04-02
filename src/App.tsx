@@ -668,6 +668,61 @@ const InventoryReport = ({ data, settings, categories }: { data: InventoryReport
     return matchesCategory && matchesStatus;
   });
 
+  const handleExportInventoryPDF = () => {
+    try {
+      const doc = new jsPDF();
+      doc.setFontSize(18);
+      doc.text(settings.company_name || 'Modern POS', 14, 22);
+      doc.setFontSize(11);
+      doc.setTextColor(100);
+      doc.text(`Inventory Report - ${new Date().toLocaleDateString()}`, 14, 30);
+      
+      autoTable(doc, {
+        startY: 40,
+        head: [['Item', 'SKU', 'Category', 'Stock', 'Cost Price', 'Sale Price', 'Valuation', 'Status']],
+        body: filteredItems.map(i => [
+          i.name,
+          i.sku || 'N/A',
+          i.category_name || 'N/A',
+          i.stock,
+          `${settings.currency || '₱'}${i.cost_price.toFixed(2)}`,
+          `${settings.currency || '₱'}${i.price.toFixed(2)}`,
+          `${settings.currency || '₱'}${i.valuation.toFixed(2)}`,
+          i.status
+        ]),
+      });
+      
+      doc.save(`inventory-report-${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (err) {
+      alert('Failed to export PDF: ' + (err as Error).message);
+    }
+  };
+
+  const handleExportInventoryCSV = () => {
+    try {
+      const csvData = filteredItems.map(i => ({
+        Name: i.name,
+        SKU: i.sku || '',
+        Category: i.category_name || '',
+        Stock: i.stock,
+        CostPrice: i.cost_price,
+        SalePrice: i.price,
+        Valuation: i.valuation,
+        Status: i.status
+      }));
+      
+      const csv = Papa.unparse(csvData);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `inventory-report-${new Date().toISOString().split('T')[0]}.csv`);
+      link.click();
+    } catch (err) {
+      alert('Failed to export CSV: ' + (err as Error).message);
+    }
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
@@ -679,7 +734,7 @@ const InventoryReport = ({ data, settings, categories }: { data: InventoryReport
           <h2 className="text-2xl lg:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">Inventory Report</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">Detailed stock levels, valuation, and profit analysis</p>
         </div>
-        <div className="flex gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto items-center">
           <select 
             className="input text-sm py-2"
             value={filterCategory}
@@ -699,6 +754,12 @@ const InventoryReport = ({ data, settings, categories }: { data: InventoryReport
             <option value="low">Low Stock</option>
             <option value="out">Out of Stock</option>
           </select>
+          <button onClick={handleExportInventoryPDF} className="btn btn-secondary flex items-center gap-2 py-2">
+            <FileText size={16} /> PDF
+          </button>
+          <button onClick={handleExportInventoryCSV} className="btn btn-secondary flex items-center gap-2 py-2">
+            <FileSpreadsheet size={16} /> CSV
+          </button>
         </div>
       </div>
 
@@ -2022,12 +2083,71 @@ const CustomersSection = ({ currentUser, settings }: { currentUser: any, setting
     }
   };
 
+  const handleExportCustomersPDF = () => {
+    try {
+      const doc = new jsPDF();
+      doc.setFontSize(18);
+      doc.text(settings.company_name || 'Modern POS', 14, 22);
+      doc.setFontSize(11);
+      doc.setTextColor(100);
+      doc.text(`Customer Report - ${new Date().toLocaleDateString()}`, 14, 30);
+      
+      autoTable(doc, {
+        startY: 40,
+        head: [['Name', 'Phone', 'Email', 'Address', 'Total Orders', 'Total Spent']],
+        body: customers.map(c => [
+          c.name,
+          c.phone || 'N/A',
+          c.email || 'N/A',
+          c.address || 'N/A',
+          c.total_orders || 0,
+          `${settings.currency || '₱'}${(c.total_spent || 0).toFixed(2)}`
+        ]),
+      });
+      
+      doc.save(`customers-report-${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (err) {
+      alert('Failed to export PDF: ' + (err as Error).message);
+    }
+  };
+
+  const handleExportCustomersCSV = () => {
+    try {
+      const csvData = customers.map(c => ({
+        Name: c.name,
+        Phone: c.phone || '',
+        Email: c.email || '',
+        Address: c.address || '',
+        TotalOrders: c.total_orders || 0,
+        TotalSpent: c.total_spent || 0
+      }));
+      
+      const csv = Papa.unparse(csvData);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `customers-report-${new Date().toISOString().split('T')[0]}.csv`);
+      link.click();
+    } catch (err) {
+      alert('Failed to export CSV: ' + (err as Error).message);
+    }
+  };
+
   return (
     <div className="p-4 lg:p-8 max-w-7xl mx-auto space-y-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl lg:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">Customer Management</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">Track customer sales and branch activity</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={handleExportCustomersPDF} className="btn btn-secondary flex items-center gap-2">
+            <FileText size={16} /> PDF
+          </button>
+          <button onClick={handleExportCustomersCSV} className="btn btn-secondary flex items-center gap-2">
+            <FileSpreadsheet size={16} /> CSV
+          </button>
         </div>
       </div>
 

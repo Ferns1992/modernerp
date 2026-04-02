@@ -342,7 +342,20 @@ app.put('/api/orders/:id/status', (req, res) => {
 });
 
 app.get('/api/customers', (req, res) => {
-  res.json(db.prepare('SELECT * FROM customers LIMIT 100').all());
+  try {
+    const customers = db.prepare(`
+      SELECT c.*, 
+        COALESCE(COUNT(s.id), 0) as total_orders, 
+        COALESCE(SUM(s.total), 0) as total_spent 
+      FROM customers c 
+      LEFT JOIN sales s ON c.id = s.customer_id 
+      GROUP BY c.id 
+      ORDER BY total_spent DESC
+    `).all();
+    res.json(customers);
+  } catch (e) {
+    res.json(db.prepare('SELECT * FROM customers LIMIT 100').all());
+  }
 });
 
 app.post('/api/customers', (req, res) => {
