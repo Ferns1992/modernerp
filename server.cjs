@@ -30,6 +30,7 @@ try { db.exec("ALTER TABLE branches ADD COLUMN vat_id TEXT DEFAULT ''"); } catch
 try { db.exec("ALTER TABLE sales ADD COLUMN customer_id INTEGER"); } catch(e) {}
 try { db.exec("ALTER TABLE sales ADD COLUMN timestamp DATETIME DEFAULT CURRENT_TIMESTAMP"); } catch(e) {}
 try { db.exec("ALTER TABLE sales ADD COLUMN branch_id INTEGER"); } catch(e) {}
+try { db.exec("ALTER TABLE sales ADD COLUMN status TEXT DEFAULT 'completed'"); } catch(e) {}
 try { db.exec("ALTER TABLE stock_adjustments ADD COLUMN timestamp DATETIME DEFAULT CURRENT_TIMESTAMP"); } catch(e) {}
 try { db.exec("ALTER TABLE users ADD COLUMN branch_id INTEGER"); } catch(e) {}
 
@@ -156,12 +157,12 @@ app.post('/api/auth/login', (req, res) => {
   const { username, password } = req.body;
   const adminCount = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'admin'").get();
   if (adminCount.count === 0 && password === 'admin' && username === 'admin') {
-    return res.json({ success: true, username: 'admin', role: 'admin' });
+    return res.json({ success: true, username: 'admin', role: 'admin', branch_id: null });
   }
   const hash = hashPassword(password);
   const user = db.prepare('SELECT * FROM users WHERE username = ? AND password_hash = ?').get(username, hash);
   if (user) {
-    res.json({ success: true, username: user.username, role: user.role });
+    res.json({ success: true, username: user.username, role: user.role, branch_id: user.branch_id });
   } else {
     res.status(401).json({ error: 'Invalid credentials' });
   }
@@ -306,11 +307,12 @@ app.get('/api/items/:id/stock-history', (req, res) => {
 });
 
 app.post('/api/sales', (req, res) => {
-  const { items, subtotal, tax, total, payment_method, customer_id, branch_id, timestamp } = req.body;
+  const { items, subtotal, tax, total, payment_method, customer_id, branch_id, timestamp, status } = req.body;
+  const username = req.headers['x-username'] || 'System';
   if (!items || items.length === 0) return res.status(400).json({ error: 'Cart is empty' });
   
   const transaction = db.transaction(() => {
-    const saleInfo = db.prepare('INSERT INTO sales (subtotal, tax, total, payment_method, customer_id, branch_id, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)').run(subtotal, tax, total, payment_method, customer_id || null, branch_id || null, timestamp || null);
+    const saleInfo = db.prepare('INSERT INTO sales (subtotal, tax, total, payment_method, customer_id, branch_id, timestamp, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(subtotal, tax, total, payment_method, customer_id || null, branch_id || null, timestamp || null, status || 'completed');
     const saleId = saleInfo.lastInsertRowid;
     
     for (const item of items) {
@@ -318,7 +320,7 @@ app.post('/api/sales', (req, res) => {
       db.prepare('UPDATE items SET stock = stock - ? WHERE id = ?').run(item.quantity, item.id);
     }
     
-    try { db.prepare('INSERT INTO edit_logs (table_name, row_id, action, details) VALUES (?, ?, ?, ?)').run('sales', saleId, 'CREATE', `Sale #${saleId} - Total: ${total}`); } catch(e) {}
+    try { db.prepare('INSERT INTO edit_logs (table_name, row_id, action, details, username) VALUES (?, ?, ?, ?, ?)').run('sales', saleId, 'CREATE', `Sale #${saleId} - Total: ${total}`, username); } catch(e) {}
     
     return saleId;
   });
