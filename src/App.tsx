@@ -2786,11 +2786,14 @@ export default function App() {
     let interval: NodeJS.Timeout;
     if (isAuthenticated && (currentUser?.role === 'admin' || currentUser?.role === 'cashier' || currentUser?.role === 'kds')) {
       interval = setInterval(() => {
-        fetchPendingOrders(true);
+        // Only poll for active orders, not when viewing completed/filtered
+        if (activeTab === 'kds' || activeTab === 'pending_orders') {
+          fetchPendingOrders(true, { includeCompleted: false });
+        }
       }, 10000); // Poll every 10 seconds
     }
     return () => clearInterval(interval);
-  }, [isAuthenticated, currentUser]);
+  }, [isAuthenticated, currentUser, activeTab]);
 
   const fetchPendingOrders = async (isPolling = false, options?: { includeCompleted?: boolean, date?: string }) => {
     if (!currentUser) return;
