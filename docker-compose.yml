@@ -1,0 +1,15 @@
+services:
+  modernerp:
+    build: .
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_PATH=/data/pos.db
+    volumes:
+      - pos-data:/data
+    restart: unless-stopped
+    container_name: modernerp
+
+volumes:
+  pos-data:
