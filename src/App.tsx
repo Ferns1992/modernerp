@@ -426,10 +426,9 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, currentUser, settings, isO
 // --- Receipt Component ---
 const Receipt = ({ sale, items, settings, branches = [] }: { sale: any, items: any[], settings: Settings, branches?: any[] }) => {
   const saleDate = sale.timestamp ? new Date(sale.timestamp) : new Date();
-  const taxRate = parseFloat(settings.tax_rate) || 0;
-  const currency = settings.currency || '₱';
-  
   const branch = branches.find(b => b.id === sale.branch_id);
+  const taxRate = branch?.tax_rate ? parseFloat(branch.tax_rate) : (parseFloat(settings.tax_rate) || 0);
+  const currency = settings.currency || '₱';
 
   // Thermal Printer settings
   const paperSize = settings.thermal_paper_size || '80mm';
@@ -1240,6 +1239,7 @@ const AdminPanel = ({ onUpdatePaymentMethods, currentUser }: { onUpdatePaymentMe
   const [newBranchAddress, setNewBranchAddress] = useState('');
   const [newBranchContact, setNewBranchContact] = useState('');
   const [newBranchVatId, setNewBranchVatId] = useState('');
+  const [newBranchTaxRate, setNewBranchTaxRate] = useState('');
   const [branchError, setBranchError] = useState('');
   const [editingUser, setEditingUser] = useState<number | null>(null);
   const [newPassword, setNewPassword] = useState('');
@@ -1349,7 +1349,7 @@ const AdminPanel = ({ onUpdatePaymentMethods, currentUser }: { onUpdatePaymentMe
           'Content-Type': 'application/json',
           'X-Username': currentUser?.username || 'System'
         },
-        body: JSON.stringify({ name: newBranchName, address: newBranchAddress, contact: newBranchContact, vat_id: newBranchVatId }),
+        body: JSON.stringify({ name: newBranchName, address: newBranchAddress, contact: newBranchContact, vat_id: newBranchVatId, tax_rate: newBranchTaxRate }),
       });
       
       if (res.ok) {
@@ -1357,6 +1357,7 @@ const AdminPanel = ({ onUpdatePaymentMethods, currentUser }: { onUpdatePaymentMe
         setNewBranchAddress('');
         setNewBranchContact('');
         setNewBranchVatId('');
+        setNewBranchTaxRate('');
         fetchBranches();
       } else {
         const data = await res.json();
@@ -1619,6 +1620,16 @@ const AdminPanel = ({ onUpdatePaymentMethods, currentUser }: { onUpdatePaymentMe
               onChange={(e) => setNewBranchVatId(e.target.value)}
             />
           </div>
+          <div className="flex-1">
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 tracking-wider">Tax %</label>
+            <input 
+              type="text" 
+              placeholder="e.g. 12" 
+              className="input w-full text-sm"
+              value={newBranchTaxRate}
+              onChange={(e) => setNewBranchTaxRate(e.target.value)}
+            />
+          </div>
           <button type="submit" className="btn btn-primary px-6 py-3 text-sm font-bold uppercase tracking-widest whitespace-nowrap">
             <Plus size={18} className="mr-2" />
             Add Branch
@@ -1639,6 +1650,7 @@ const AdminPanel = ({ onUpdatePaymentMethods, currentUser }: { onUpdatePaymentMe
                 <span className="text-xs text-slate-500 block">{branch.address}</span>
                 <span className="text-xs text-slate-500 block">{branch.contact}</span>
                 {branch.vat_id && <span className="text-xs text-slate-500 block">VAT: {branch.vat_id}</span>}
+                {branch.tax_rate && <span className="text-xs text-slate-500 block">Tax: {branch.tax_rate}%</span>}
               </div>
               <button 
                 onClick={() => handleDeleteBranch(branch.id)}
@@ -2578,7 +2590,8 @@ export default function App() {
   };
 
   const cartSubtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const taxRate = parseFloat(settings.tax_rate) || 0;
+  const selectedBranchData = branches.find(b => b.id === selectedBranch);
+  const taxRate = selectedBranchData?.tax_rate ? parseFloat(selectedBranchData.tax_rate) : (parseFloat(settings.tax_rate) || 0);
   const cartTax = cartSubtotal * (taxRate / 100);
   const cartTotal = cartSubtotal + cartTax;
 
@@ -3573,7 +3586,7 @@ export default function App() {
                       <span>{settings.currency || '₱'}{cartSubtotal.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-slate-500 dark:text-slate-400">
-                      <span>VAT ({settings.tax_rate}%)</span>
+                      <span>VAT ({taxRate}%)</span>
                       <span>{settings.currency || '₱'}{cartTax.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-slate-500 dark:text-slate-400">
