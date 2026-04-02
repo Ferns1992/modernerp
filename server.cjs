@@ -76,11 +76,11 @@ app.get('/api/items', (req, res) => {
 });
 
 app.post('/api/items', (req, res) => {
-  const { name, price, cost_price, category_id, sku, stock } = req.body;
+  const { name, price, cost_price, category_id, sku, stock, image_url, low_stock_threshold } = req.body;
   if (!name || !price) return res.status(400).json({ error: 'Name and price required' });
   try {
-    const info = db.prepare('INSERT INTO items (name, price, cost_price, category_id, sku, stock) VALUES (?, ?, ?, ?, ?, ?)').run(name, price, cost_price || 0, category_id, sku, stock || 0);
-    res.json({ id: info.lastInsertRowid, name, price, cost_price, category_id, sku, stock });
+    const info = db.prepare('INSERT INTO items (name, price, cost_price, category_id, sku, stock, image_url, low_stock_threshold) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(name, price, cost_price || 0, category_id, sku, stock || 0, image_url || null, low_stock_threshold || 5);
+    res.json({ id: info.lastInsertRowid, name, price, cost_price, category_id, sku, stock, image_url, low_stock_threshold });
   } catch (err) {
     res.status(400).json({ error: 'SKU must be unique or error' });
   }
@@ -88,8 +88,8 @@ app.post('/api/items', (req, res) => {
 
 app.put('/api/items/:id', (req, res) => {
   const { id } = req.params;
-  const { name, price, cost_price, category_id, sku, stock } = req.body;
-  db.prepare('UPDATE items SET name = ?, price = ?, cost_price = ?, category_id = ?, sku = ?, stock = ? WHERE id = ?').run(name, price, cost_price || 0, category_id, sku, stock, id);
+  const { name, price, cost_price, category_id, sku, stock, image_url, low_stock_threshold } = req.body;
+  db.prepare('UPDATE items SET name = ?, price = ?, cost_price = ?, category_id = ?, sku = ?, stock = ?, image_url = ?, low_stock_threshold = ? WHERE id = ?').run(name, price, cost_price || 0, category_id, sku, stock, image_url || null, low_stock_threshold || 5, id);
   res.json({ success: true });
 });
 
