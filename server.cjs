@@ -119,6 +119,16 @@ app.post('/api/categories', (req, res) => {
   }
 });
 
+app.delete('/api/categories/:id', (req, res) => {
+  const { id } = req.params;
+  try {
+    db.prepare('DELETE FROM categories WHERE id = ?').run(id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(400).json({ error: 'Failed to delete category' });
+  }
+});
+
 app.get('/api/items', (req, res) => {
   const items = db.prepare(`SELECT items.*, categories.name as category_name FROM items LEFT JOIN categories ON items.category_id = categories.id`).all();
   res.json(items);
@@ -142,6 +152,16 @@ app.put('/api/items/:id', (req, res) => {
   db.prepare('UPDATE items SET name = ?, price = ?, cost_price = ?, category_id = ?, sku = ?, stock = ?, image_url = ?, low_stock_threshold = ? WHERE id = ?').run(name, price, cost_price || 0, category_id, sku, stock, image_url || null, low_stock_threshold || 5, id);
   try { db.prepare('INSERT INTO edit_logs (table_name, row_id, action, details) VALUES (?, ?, ?, ?)').run('items', id, 'UPDATE', `Updated item: ${name}`); } catch(e) {}
   res.json({ success: true });
+});
+
+app.delete('/api/items/:id', (req, res) => {
+  const { id } = req.params;
+  try {
+    db.prepare('DELETE FROM items WHERE id = ?').run(id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(400).json({ error: 'Failed to delete item' });
+  }
 });
 
 app.post('/api/items/:id/adjust-stock', (req, res) => {
@@ -330,6 +350,27 @@ app.post('/api/customers', (req, res) => {
   const info = db.prepare('INSERT INTO customers (name, phone, email, address) VALUES (?, ?, ?, ?)').run(name, phone, email, address);
   try { db.prepare('INSERT INTO edit_logs (table_name, row_id, action, details) VALUES (?, ?, ?, ?)').run('customers', info.lastInsertRowid, 'CREATE', `Created customer: ${name}`); } catch(e) {}
   res.json({ id: info.lastInsertRowid, name, phone, email, address });
+});
+
+app.put('/api/customers/:id', (req, res) => {
+  const { id } = req.params;
+  const { name, phone, email, address } = req.body;
+  try {
+    db.prepare('UPDATE customers SET name = ?, phone = ?, email = ?, address = ? WHERE id = ?').run(name, phone, email, address, id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(400).json({ error: 'Failed to update customer' });
+  }
+});
+
+app.delete('/api/customers/:id', (req, res) => {
+  const { id } = req.params;
+  try {
+    db.prepare('DELETE FROM customers WHERE id = ?').run(id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(400).json({ error: 'Failed to delete customer' });
+  }
 });
 
 app.get('/api/customers/:id/sales', (req, res) => {
