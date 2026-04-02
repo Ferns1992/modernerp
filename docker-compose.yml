@@ -9,8 +9,10 @@ services:
       - DATABASE_PATH=/data/pos.db
     volumes:
       - pos-data:/data
+      - pos-uploads:/tmp/uploads
     restart: unless-stopped
     container_name: modernerp
 
 volumes:
   pos-data:
+  pos-uploads:
