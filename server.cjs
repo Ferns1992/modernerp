@@ -347,6 +347,48 @@ app.put('/api/orders/:id/status', (req, res) => {
   }
 });
 
+app.post('/api/sales/:id/refund', (req, res) => {
+  const { id } = req.params;
+  const username = req.headers['x-username'] || 'System';
+  try {
+    const sale = db.prepare('SELECT * FROM sales WHERE id = ?').get(id);
+    if (!sale) return res.status(404).json({ error: 'Sale not found' });
+    
+    // Restore stock
+    const items = db.prepare('SELECT * FROM sale_items WHERE sale_id = ?').all(id);
+    for (const item of items) {
+      db.prepare('UPDATE items SET stock = stock + ? WHERE id = ?').run(item.quantity, item.item_id);
+    }
+    
+    db.prepare('UPDATE sales SET status = ? WHERE id = ?').run('refunded', id);
+    try { db.prepare('INSERT INTO edit_logs (table_name, row_id, action, details, username) VALUES (?, ?, ?, ?, ?)').run('sales', id, 'REFUND', `Sale #${id} refunded`, username); } catch(e) {}
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ error: 'Failed to refund' });
+  }
+});
+
+app.post('/api/sales/:id/void', (req, res) => {
+  const { id } = req.params;
+  const username = req.headers['x-username'] || 'System';
+  try {
+    const sale = db.prepare('SELECT * FROM sales WHERE id = ?').get(id);
+    if (!sale) return res.status(404).json({ error: 'Sale not found' });
+    
+    // Restore stock
+    const items = db.prepare('SELECT * FROM sale_items WHERE sale_id = ?').all(id);
+    for (const item of items) {
+      db.prepare('UPDATE items SET stock = stock + ? WHERE id = ?').run(item.quantity, item.item_id);
+    }
+    
+    db.prepare('UPDATE sales SET status = ? WHERE id = ?').run('voided', id);
+    try { db.prepare('INSERT INTO edit_logs (table_name, row_id, action, details, username) VALUES (?, ?, ?, ?, ?)').run('sales', id, 'VOID', `Sale #${id} voided`, username); } catch(e) {}
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ error: 'Failed to void' });
+  }
+});
+
 app.get('/api/customers', (req, res) => {
   try {
     const customers = db.prepare(`
