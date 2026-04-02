@@ -3310,70 +3310,75 @@ export default function App() {
   };
 
   const handleExportPDF = () => {
-    const doc = new jsPDF();
-    const summary = dayEndReport?.summary || [];
-    const sales = salesHistory || [];
-    
-    doc.setFontSize(18);
-    doc.text(settings.company_name || 'Modern POS', 14, 22);
-    doc.setFontSize(11);
-    doc.setTextColor(100);
-    doc.text(`Sales Report - ${new Date().toLocaleDateString()}`, 14, 30);
-    
-    // Summary Table
-    autoTable(doc, {
-      startY: 40,
-      head: [['Payment Method', 'Transactions', 'Total Sales', 'Revenue']],
-      body: summary.map(s => [
-        s.payment_method,
-        s.transaction_count,
-        `${settings.currency || '₱'}${s.total_sales.toFixed(2)}`,
-        `${settings.currency || '₱'}${s.total_revenue.toFixed(2)}`
-      ]),
-    });
-    
-    // Sales History Table
-    autoTable(doc, {
-      startY: (doc as any).lastAutoTable.finalY + 10,
-      head: [['Time', 'Branch', 'Method', 'Total', 'Status']],
-      body: sales.map(s => [
-        new Date(s.timestamp).toLocaleTimeString(),
-        s.branch_name || 'Main',
-        s.payment_method,
-        `${settings.currency || '₱'}${s.total.toFixed(2)}`,
-        s.status
-      ]),
-    });
-    
-    doc.save(`report-${new Date().toISOString().split('T')[0]}.pdf`);
+    try {
+      const doc = new jsPDF();
+      const summary = dayEndReport?.summary || [];
+      const sales = salesHistory || [];
+      console.log('Exporting PDF, summary:', summary.length, 'sales:', sales.length);
+      
+      doc.setFontSize(18);
+      doc.text(settings.company_name || 'Modern POS', 14, 22);
+      doc.setFontSize(11);
+      doc.setTextColor(100);
+      doc.text(`Sales Report - ${new Date().toLocaleDateString()}`, 14, 30);
+      
+      // Summary Table
+      if (summary.length > 0) {
+        autoTable(doc, {
+          startY: 40,
+          head: [['Payment Method', 'Transactions', 'Total Sales']],
+          body: summary.map(s => [
+            s.payment_method,
+            s.transaction_count,
+            `${settings.currency || '₱'}${s.total_sales.toFixed(2)}`
+          ]),
+        });
+        
+        autoTable(doc, {
+          startY: (doc as any).lastAutoTable.finalY + 10,
+          head: [['Time', 'Method', 'Total', 'Status']],
+          body: sales.map(s => [
+            new Date(s.timestamp).toLocaleTimeString(),
+            s.payment_method,
+            `${settings.currency || '₱'}${s.total.toFixed(2)}`,
+            s.status || 'completed'
+          ]),
+        });
+      }
+      
+      doc.save(`report-${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (err) {
+      console.error('PDF export error:', err);
+      alert('Failed to export PDF: ' + (err as Error).message);
+    }
   };
 
   const handleExportCSV = () => {
-    const summary = dayEndReport?.summary || [];
-    const sales = salesHistory || [];
-    
-    // Export Sales History as CSV
-    const csvData = sales.map(s => ({
-      ID: s.id,
-      Time: new Date(s.timestamp).toLocaleString(),
-      Branch: s.branch_name || 'Main',
-      Customer: s.customer_name || 'Walk-in',
-      Method: s.payment_method,
-      Subtotal: s.subtotal.toFixed(2),
-      Tax: s.tax.toFixed(2),
-      Discount: s.discount.toFixed(2),
-      Total: s.total.toFixed(2),
-      Status: s.status,
-      CompletedBy: s.completed_by || ''
-    }));
-    
-    const csv = Papa.unparse(csvData);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `sales-report-${new Date().toISOString().split('T')[0]}.csv`);
-    link.click();
+    try {
+      const sales = salesHistory || [];
+      console.log('Exporting CSV, sales:', sales.length);
+      
+      const csvData = sales.map(s => ({
+        ID: s.id,
+        Time: new Date(s.timestamp).toLocaleString(),
+        Method: s.payment_method,
+        Subtotal: (s.subtotal || 0).toFixed(2),
+        Tax: (s.tax || 0).toFixed(2),
+        Total: (s.total || 0).toFixed(2),
+        Status: s.status || 'completed'
+      }));
+      
+      const csv = Papa.unparse(csvData);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `sales-report-${new Date().toISOString().split('T')[0]}.csv`);
+      link.click();
+    } catch (err) {
+      console.error('CSV export error:', err);
+      alert('Failed to export CSV: ' + (err as Error).message);
+    }
   };
 
   if (!isAuthenticated) {
