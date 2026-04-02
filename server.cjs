@@ -22,8 +22,11 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS payment_methods (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, is_active BOOLEAN DEFAULT 1);
   CREATE TABLE IF NOT EXISTS customers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, phone TEXT, email TEXT, address TEXT);
   CREATE TABLE IF NOT EXISTS stock_adjustments (id INTEGER PRIMARY KEY AUTOINCREMENT, item_id INTEGER, adjustment INTEGER, reason TEXT, username TEXT);
-  CREATE TABLE IF NOT EXISTS edit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, table_name TEXT, row_id INTEGER, action TEXT, details TEXT, username TEXT);
+  CREATE TABLE IF NOT EXISTS edit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, table_name TEXT, row_id INTEGER, action TEXT, details TEXT, username TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP);
 `);
+
+try { db.exec("ALTER TABLE edit_logs ADD COLUMN timestamp DATETIME DEFAULT CURRENT_TIMESTAMP"); } catch(e) {}
+try { db.exec("ALTER TABLE edit_logs ADD COLUMN username TEXT"); } catch(e) {}
 
 const seed = db.transaction(() => {
   const insert = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
