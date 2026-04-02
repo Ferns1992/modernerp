@@ -6,7 +6,7 @@ const crypto = require('crypto');
 const multer = require('multer');
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
 
 const dbPath = process.env.DATABASE_PATH || 'pos.db';
 let db = new Database(dbPath);
@@ -499,7 +499,9 @@ app.get('/api/db/export', (req, res) => {
 });
 
 app.post('/api/db/import', (req, res) => {
+  console.log('Import request received');
   const { data, mode } = req.body;
+  console.log('Data received:', typeof data, data ? Object.keys(data) : 'none');
   if (!data) return res.status(400).json({ error: 'No data provided' });
   
   try {

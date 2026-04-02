@@ -1120,7 +1120,12 @@ const SettingsPanel = ({ settings, onUpdate, currentUser }: { settings: Settings
                     const reader = new FileReader();
                     reader.onload = async (event) => {
                       try {
-                        const data = JSON.parse(event.target?.result as string);
+                        const resultText = event.target?.result;
+                        if (!resultText) {
+                          alert('Failed to read file');
+                          return;
+                        }
+                        const data = JSON.parse(resultText as string);
                         const mode = confirm('Click OK to REPLACE all existing data, or Cancel to MERGE/ADD data?') ? 'replace' : 'merge';
                         const res = await fetch('/api/db/import', {
                           method: 'POST',
@@ -1135,9 +1140,11 @@ const SettingsPanel = ({ settings, onUpdate, currentUser }: { settings: Settings
                           alert('Import failed: ' + result.error);
                         }
                       } catch (err) {
-                        alert('Invalid file format');
+                        console.error('Import error:', err);
+                        alert('Invalid file format: ' + (err as Error).message);
                       }
                     };
+                    reader.onerror = () => alert('Failed to read file');
                     reader.readAsText(file);
                   }}
                 />
