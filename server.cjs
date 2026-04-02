@@ -309,12 +309,23 @@ app.post('/api/upload', upload.single('image'), (req, res) => {
 });
 
 app.get('/api/orders/pending', (req, res) => {
-  const { branch_id } = req.query;
-  let query = "SELECT * FROM sales WHERE (status = 'pending' OR status = 'preparing' OR status = 'ready' OR status IS NULL)";
+  const { branch_id, date, include_completed } = req.query;
+  let query;
   let params = [];
-  if (branch_id) {
-    query += " AND branch_id = ?";
-    params.push(branch_id);
+  
+  if (include_completed === 'true' && date) {
+    query = "SELECT * FROM sales WHERE date(timestamp) = date(?)";
+    params.push(date);
+    if (branch_id) {
+      query += " AND branch_id = ?";
+      params.push(branch_id);
+    }
+  } else {
+    query = "SELECT * FROM sales WHERE (status = 'pending' OR status = 'preparing' OR status = 'ready' OR status IS NULL)";
+    if (branch_id) {
+      query += " AND branch_id = ?";
+      params.push(branch_id);
+    }
   }
   query += " ORDER BY timestamp DESC";
   try {

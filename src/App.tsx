@@ -1220,15 +1220,31 @@ const SettingsPanel = ({ settings, onUpdate, currentUser }: { settings: Settings
 };
 
 // --- KDS Panel Component ---
-const KDSPanel = ({ orders, onUpdateStatus, currentUser, isSoundEnabled, setIsSoundEnabled, onTestSound }: { 
+const KDSPanel = ({ orders, onUpdateStatus, currentUser, isSoundEnabled, setIsSoundEnabled, onTestSound, onRefresh }: { 
   orders: Sale[], 
   onUpdateStatus: (id: number, status: string) => void, 
   currentUser: any,
   isSoundEnabled: boolean,
   setIsSoundEnabled: (enabled: boolean) => void,
-  onTestSound: () => void
+  onTestSound: () => void,
+  onRefresh?: (options?: { includeCompleted?: boolean, date?: string }) => void
 }) => {
   const branchOrders = orders.filter(o => !currentUser.branch_id || o.branch_id === currentUser.branch_id);
+  const [showCompleted, setShowCompleted] = useState(false);
+  const [kdsDate, setKdsDate] = useState(new Date().toISOString().split('T')[0]);
+  
+  useEffect(() => {
+    if (onRefresh) {
+      onRefresh({ includeCompleted: showCompleted, date: kdsDate });
+    }
+  }, [showCompleted, kdsDate]);
+  
+  const filteredOrders = branchOrders.filter(o => {
+    const orderDate = new Date(o.timestamp).toISOString().split('T')[0];
+    if (orderDate !== kdsDate) return false;
+    if (!showCompleted && (o.status === 'completed' || o.status === 'refunded' || o.status === 'voided')) return false;
+    return true;
+  });
 
   return (
     <motion.div 
@@ -1241,7 +1257,22 @@ const KDSPanel = ({ orders, onUpdateStatus, currentUser, isSoundEnabled, setIsSo
           <h2 className="text-2xl lg:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">Kitchen Display System</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">Manage order preparation for your branch</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <input 
+            type="date" 
+            value={kdsDate}
+            onChange={(e) => setKdsDate(e.target.value)}
+            className="input py-2 text-sm"
+          />
+          <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+            <input 
+              type="checkbox" 
+              checked={showCompleted}
+              onChange={(e) => setShowCompleted(e.target.checked)}
+              className="rounded"
+            />
+            Show Completed
+          </label>
           <button 
             onClick={() => setIsSoundEnabled(!isSoundEnabled)}
             className={`p-3 rounded-xl border transition-all flex items-center gap-2 ${
@@ -1275,7 +1306,7 @@ const KDSPanel = ({ orders, onUpdateStatus, currentUser, isSoundEnabled, setIsSo
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {branchOrders.map((order) => (
+        {filteredOrders.map((order) => (
           <div key={order.id} className="card overflow-hidden border-t-4 border-indigo-500">
             <div className="p-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
               <div>
@@ -2761,13 +2792,19 @@ export default function App() {
     return () => clearInterval(interval);
   }, [isAuthenticated, currentUser]);
 
-  const fetchPendingOrders = async (isPolling = false) => {
+  const fetchPendingOrders = async (isPolling = false, options?: { includeCompleted?: boolean, date?: string }) => {
     if (!currentUser) return;
     try {
       let url = '/api/orders/pending';
+      const params = new URLSearchParams();
       if ((currentUser.role === 'cashier' || currentUser.role === 'kds') && currentUser.branch_id) {
-        url += `?branch_id=${currentUser.branch_id}`;
+        params.append('branch_id', currentUser.branch_id.toString());
       }
+      if (options?.includeCompleted && options?.date) {
+        params.append('include_completed', 'true');
+        params.append('date', options.date);
+      }
+      if (params.toString()) url += '?' + params.toString();
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
@@ -4277,6 +4314,7 @@ export default function App() {
               isSoundEnabled={isSoundEnabled}
               setIsSoundEnabled={setIsSoundEnabled}
               onTestSound={playAlertSound}
+              onRefresh={(options) => fetchPendingOrders(false, options)}
             />
           )}
 
