@@ -3353,9 +3353,13 @@ export default function App() {
   const fetchReportSummary = async () => {
     try {
       const branchParam = currentUser?.role === 'cashier' ? currentUser.branch_id : reportBranchId;
-      const res = await fetch(`/api/reports/summary?type=${reportType}&date=${reportDate}&branch_id=${branchParam || ''}`);
-      if (!res.ok) throw new Error('Failed to fetch summary');
+      const url = `/api/reports/summary?type=${reportType}&date=${reportDate}&branch_id=${branchParam || ''}`;
+      console.log('Fetching summary:', url);
+      const res = await fetch(url);
+      console.log('Summary response:', res.status, res.ok);
+      if (!res.ok) throw new Error('Failed to fetch summary: ' + res.status);
       const data = await res.json();
+      console.log('Summary data:', data);
       setDayEndReport(data);
       return data;
     } catch (error) {
@@ -3367,9 +3371,13 @@ export default function App() {
   const fetchSalesHistory = async () => {
     try {
       const branchParam = currentUser?.role === 'cashier' ? currentUser.branch_id : reportBranchId;
-      const res = await fetch(`/api/reports/sales?type=${reportType}&date=${reportDate}&branch_id=${branchParam || ''}`);
-      if (!res.ok) throw new Error('Failed to fetch sales');
+      const url = `/api/reports/sales?type=${reportType}&date=${reportDate}&branch_id=${branchParam || ''}`;
+      console.log('Fetching sales:', url);
+      const res = await fetch(url);
+      console.log('Sales response:', res.status, res.ok);
+      if (!res.ok) throw new Error('Failed to fetch sales: ' + res.status);
       const data = await res.json();
+      console.log('Sales data:', data.length);
       setSalesHistory(data);
       return data;
     } catch (error) {

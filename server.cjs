@@ -576,11 +576,15 @@ app.get('/api/reports/summary', (req, res) => {
     endDate = startDate;
   }
   
-  const today = new Date();
+  console.log('Summary - startDate:', startDate, 'endDate:', endDate, 'branch_id:', branch_id);
+  
+  let whereClause = "WHERE date(sales.timestamp) >= date(?) AND date(sales.timestamp) <= date(?)";
+  let params = [startDate, endDate];
   if (branch_id) {
     whereClause += " AND sales.branch_id = ?";
     params.push(branch_id);
   }
+  console.log('Summary params:', params);
   const summary = db.prepare(`SELECT COUNT(*) as transaction_count, COALESCE(SUM(total), 0) as total_sales, payment_method FROM sales ${whereClause} GROUP BY payment_method`).all(...params);
   const items = db.prepare(`SELECT items.name, SUM(sale_items.quantity) as total_quantity, SUM(sale_items.quantity * sale_items.price_at_sale) as total_revenue FROM sale_items JOIN items ON sale_items.item_id = items.id JOIN sales ON sale_items.sale_id = sales.id ${whereClause} GROUP BY items.id ORDER BY total_revenue DESC`).all(...params);
   console.log('Summary result:', summary.length, 'items:', items.length);
