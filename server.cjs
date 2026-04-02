@@ -248,6 +248,28 @@ app.post('/api/payment-methods', (req, res) => {
   }
 });
 
+app.put('/api/payment-methods/:id', (req, res) => {
+  const { id } = req.params;
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: 'Name is required' });
+  try {
+    db.prepare('UPDATE payment_methods SET name = ? WHERE id = ?').run(name.toLowerCase(), id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(400).json({ error: 'Failed to update' });
+  }
+});
+
+app.delete('/api/payment-methods/:id', (req, res) => {
+  const { id } = req.params;
+  try {
+    db.prepare('DELETE FROM payment_methods WHERE id = ?').run(id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(400).json({ error: 'Failed to delete' });
+  }
+});
+
 const uploadDir = '/tmp/uploads';
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
