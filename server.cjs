@@ -265,6 +265,40 @@ app.post('/api/upload', upload.single('image'), (req, res) => {
   res.json({ url: `/uploads/${req.file.filename}` });
 });
 
+app.get('/api/orders/pending', (req, res) => {
+  const { branch_id } = req.query;
+  let query = "SELECT * FROM sales WHERE status = 'pending' OR status IS NULL";
+  let params = [];
+  if (branch_id) {
+    query += " AND branch_id = ?";
+    params.push(branch_id);
+  }
+  query += " ORDER BY timestamp DESC";
+  try {
+    const orders = db.prepare(query).all(...params);
+    const ordersWithItems = orders.map(order => {
+      const items = db.prepare('SELECT sale_items.*, items.name FROM sale_items JOIN items ON sale_items.item_id = items.id WHERE sale_items.sale_id = ?').all(order.id);
+      return { ...order, items };
+    });
+    res.json(ordersWithItems);
+  } catch(e) {
+    res.json([]);
+  }
+});
+
+app.put('/api/orders/:id/status', (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  const username = req.headers['x-username'] || 'System';
+  try {
+    db.prepare('UPDATE sales SET status = ? WHERE id = ?').run(status, id);
+    try { db.prepare('INSERT INTO edit_logs (table_name, row_id, action, details, username) VALUES (?, ?, ?, ?, ?)').run('sales', id, 'UPDATE', `Status changed to ${status}`, username); } catch(e) {}
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ error: 'Failed to update status' });
+  }
+});
+
 app.get('/api/customers', (req, res) => {
   res.json(db.prepare('SELECT * FROM customers LIMIT 100').all());
 });

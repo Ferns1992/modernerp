@@ -1175,16 +1175,16 @@ const KDSPanel = ({ orders, onUpdateStatus, currentUser, isSoundEnabled, setIsSo
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</span>
                 <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                  order.preparation_status === 'ready' ? 'bg-emerald-100 text-emerald-600' :
-                  order.preparation_status === 'preparing' ? 'bg-amber-100 text-amber-600' :
+                  order.status === 'ready' ? 'bg-emerald-100 text-emerald-600' :
+                  order.status === 'preparing' ? 'bg-amber-100 text-amber-600' :
                   'bg-slate-100 text-slate-600'
                 }`}>
-                  {order.preparation_status || 'pending'}
+                  {order.status || 'pending'}
                 </span>
               </div>
               
               <div className="grid grid-cols-2 gap-2">
-                {(!order.preparation_status || order.preparation_status === 'pending') && (
+                {(!order.status || order.status === 'pending') && (
                   <button 
                     onClick={() => onUpdateStatus(order.id, 'preparing')}
                     className="col-span-2 btn bg-amber-500 hover:bg-amber-600 text-white text-xs py-2"
@@ -1192,7 +1192,7 @@ const KDSPanel = ({ orders, onUpdateStatus, currentUser, isSoundEnabled, setIsSo
                     Start Preparing
                   </button>
                 )}
-                {order.preparation_status === 'preparing' && (
+                {order.status === 'preparing' && (
                   <button 
                     onClick={() => onUpdateStatus(order.id, 'ready')}
                     className="col-span-2 btn bg-emerald-500 hover:bg-emerald-600 text-white text-xs py-2"
@@ -1200,7 +1200,7 @@ const KDSPanel = ({ orders, onUpdateStatus, currentUser, isSoundEnabled, setIsSo
                     Mark as Ready
                   </button>
                 )}
-                {order.preparation_status === 'ready' && (
+                {order.status === 'ready' && (
                   <button 
                     onClick={() => onUpdateStatus(order.id, 'delivered')}
                     className="col-span-2 btn bg-indigo-500 hover:bg-indigo-600 text-white text-xs py-2"
@@ -3016,7 +3016,7 @@ export default function App() {
     }
   };
 
-  const handleUpdatePreparationStatus = async (id: number, preparation_status: string) => {
+  const handleUpdatePreparationStatus = async (id: number, status: string) => {
     try {
       const res = await fetch(`/api/orders/${id}/status`, {
         method: 'PUT',
@@ -3024,7 +3024,7 @@ export default function App() {
           'Content-Type': 'application/json',
           'X-Username': currentUser?.username || 'System'
         },
-        body: JSON.stringify({ preparation_status }),
+        body: JSON.stringify({ status }),
       });
       if (res.ok) {
         fetchPendingOrders();
@@ -3368,15 +3368,15 @@ export default function App() {
                         </span>
                       </div>
 
-                      {order.preparation_status && (
+                      {order.status && (
                         <div className="mb-4">
                           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Preparation Status</span>
                           <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${
-                            order.preparation_status === 'ready' ? 'bg-emerald-100 text-emerald-600' :
-                            order.preparation_status === 'preparing' ? 'bg-amber-100 text-amber-600' :
+                            order.status === 'ready' ? 'bg-emerald-100 text-emerald-600' :
+                            order.status === 'preparing' ? 'bg-amber-100 text-amber-600' :
                             'bg-slate-100 text-slate-600'
                           }`}>
-                            {order.preparation_status}
+                            {order.status}
                           </span>
                         </div>
                       )}
@@ -3444,13 +3444,13 @@ export default function App() {
                           }
                         }}
                         className={`w-full py-2 rounded-xl font-bold text-sm transition-all shadow-lg mt-auto flex items-center justify-center ${
-                          order.preparation_status === 'ready' 
+                          order.status === 'ready' 
                             ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-200' 
                             : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-200'
                         }`}
                       >
                         <CheckCircle2 size={16} className="mr-2" />
-                        {order.preparation_status === 'ready' ? 'Complete & Print (Ready)' : 'Mark Completed'}
+                        {order.status === 'ready' ? 'Complete & Print (Ready)' : 'Mark Completed'}
                       </button>
                     </div>
                   ))
