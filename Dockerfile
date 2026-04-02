@@ -1,15 +1,15 @@
-FROM node:22-alpine
+FROM node:22-bookworm
 
 WORKDIR /app
 
-RUN apk add --no-cache python3 make g++ git dos2unix
+RUN apt-get update && apt-get install -y python3 make g++ git dos2unix
 
 COPY package*.json package-lock.json ./
 RUN npm install --ignore-scripts
 
 COPY . .
 
-RUN dos2unix server.ts 2>/dev/null || true
+RUN find . -name "*.ts" -exec dos2unix {} \;
 
 RUN npm run build || echo "Frontend build done"
 
