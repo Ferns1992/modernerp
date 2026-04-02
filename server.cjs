@@ -385,17 +385,18 @@ app.get('/api/reports/summary', (req, res) => {
   if (type === 'month') {
     const [year, month] = (date || now.toISOString().slice(0, 7)).split('-');
     startDate = `${year}-${month}-01`;
-    const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+    const lastDay = new Date(parseInt(year), parseInt(month) - 1, 0).getDate();
     endDate = `${year}-${month}-${lastDay}`;
   } else if (type === 'year') {
     const year = date || now.getFullYear().toString();
     startDate = `${year}-01-01`;
     endDate = `${year}-12-31`;
   } else {
-    const d = date ? new Date(date) : now;
-    startDate = d.toISOString().split('T')[0];
+    startDate = date || now.toISOString().split('T')[0];
     endDate = startDate;
   }
+  
+  console.log('Reports Summary - startDate:', startDate, 'endDate:', endDate, 'branch_id:', branch_id);
   
   let whereClause = "WHERE date(sales.timestamp) >= date(?) AND date(sales.timestamp) <= date(?)";
   let params = [startDate, endDate];
@@ -417,17 +418,18 @@ app.get('/api/reports/sales', (req, res) => {
   if (type === 'month') {
     const [year, month] = (date || now.toISOString().slice(0, 7)).split('-');
     startDate = `${year}-${month}-01`;
-    const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+    const lastDay = new Date(parseInt(year), parseInt(month) - 1, 0).getDate();
     endDate = `${year}-${month}-${lastDay}`;
   } else if (type === 'year') {
     const year = date || now.getFullYear().toString();
     startDate = `${year}-01-01`;
     endDate = `${year}-12-31`;
   } else {
-    const d = date ? new Date(date) : now;
-    startDate = d.toISOString().split('T')[0];
+    startDate = date || now.toISOString().split('T')[0];
     endDate = startDate;
   }
+  
+  console.log('Reports Sales - startDate:', startDate, 'endDate:', endDate, 'branch_id:', branch_id);
   
   let query = "SELECT * FROM sales WHERE date(timestamp) >= date(?) AND date(timestamp) <= date(?)";
   let params = [startDate, endDate];
@@ -437,6 +439,7 @@ app.get('/api/reports/sales', (req, res) => {
   }
   query += " ORDER BY timestamp DESC";
   const sales = db.prepare(query).all(...params);
+  console.log('Found sales:', sales.length);
   res.json(sales);
 });
 
