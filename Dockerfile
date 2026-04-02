@@ -13,4 +13,4 @@ RUN mkdir -p dist && cp index.html dist/
 
 EXPOSE 4000
 
-CMD ["node", "server.js"]
+CMD ["node", "server.cjs"]
