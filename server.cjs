@@ -309,7 +309,7 @@ app.post('/api/upload', upload.single('image'), (req, res) => {
 
 app.get('/api/orders/pending', (req, res) => {
   const { branch_id } = req.query;
-  let query = "SELECT * FROM sales WHERE status = 'pending' OR status IS NULL";
+  let query = "SELECT * FROM sales WHERE (status = 'pending' OR status = 'preparing' OR status = 'ready' OR status IS NULL)";
   let params = [];
   if (branch_id) {
     query += " AND branch_id = ?";

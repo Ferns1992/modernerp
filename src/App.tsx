@@ -1332,10 +1332,10 @@ const KDSPanel = ({ orders, onUpdateStatus, currentUser, isSoundEnabled, setIsSo
                 )}
                 {order.status === 'ready' && (
                   <button 
-                    onClick={() => onUpdateStatus(order.id, 'delivered')}
+                    onClick={() => onUpdateStatus(order.id, 'completed')}
                     className="col-span-2 btn bg-indigo-500 hover:bg-indigo-600 text-white text-xs py-2"
                   >
-                    Mark as Delivered
+                    Done / Complete
                   </button>
                 )}
               </div>
@@ -3612,7 +3612,7 @@ export default function App() {
                             order.status === 'preparing' ? 'bg-amber-100 text-amber-600' :
                             'bg-slate-100 text-slate-600'
                           }`}>
-                            {order.status}
+                            {order.status || 'pending'}
                           </span>
                         </div>
                       )}
