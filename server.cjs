@@ -173,6 +173,17 @@ app.get('/api/payment-methods', (req, res) => {
   }
 });
 
+app.post('/api/payment-methods', (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: 'Name is required' });
+  try {
+    const info = db.prepare('INSERT INTO payment_methods (name) VALUES (?)').run(name.toLowerCase());
+    res.json({ id: info.lastInsertRowid, name: name.toLowerCase(), is_active: 1 });
+  } catch (err) {
+    res.status(400).json({ error: 'Payment method already exists' });
+  }
+});
+
 const uploadDir = '/tmp/uploads';
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
