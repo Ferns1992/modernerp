@@ -529,12 +529,14 @@ app.get('/api/reports/sales', (req, res) => {
   
   let query = "SELECT * FROM sales WHERE date(timestamp) >= date(?) AND date(timestamp) <= date(?)";
   let params = [startDate, endDate];
+  console.log('Sales Report - query:', query, 'params:', params);
   if (branch_id) {
     query += " AND branch_id = ?";
     params.push(branch_id);
   }
   query += " ORDER BY timestamp DESC";
   const sales = db.prepare(query).all(...params);
+  console.log('Sales Report - found:', sales.length);
   
   // Add customer and branch names
   const salesWithDetails = sales.map(sale => {
