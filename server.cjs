@@ -93,6 +93,7 @@ app.post('/api/items', (req, res) => {
   if (!name || !price) return res.status(400).json({ error: 'Name and price required' });
   try {
     const info = db.prepare('INSERT INTO items (name, price, cost_price, category_id, sku, stock, image_url, low_stock_threshold) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(name, price, cost_price || 0, category_id, sku, stock || 0, image_url || null, low_stock_threshold || 5);
+    db.prepare('INSERT INTO edit_logs (table_name, row_id, action, details) VALUES (?, ?, ?, ?)').run('items', info.lastInsertRowid, 'CREATE', `Created item: ${name}`);
     res.json({ id: info.lastInsertRowid, name, price, cost_price, category_id, sku, stock, image_url, low_stock_threshold });
   } catch (err) {
     res.status(400).json({ error: 'SKU must be unique or error' });
@@ -103,6 +104,7 @@ app.put('/api/items/:id', (req, res) => {
   const { id } = req.params;
   const { name, price, cost_price, category_id, sku, stock, image_url, low_stock_threshold } = req.body;
   db.prepare('UPDATE items SET name = ?, price = ?, cost_price = ?, category_id = ?, sku = ?, stock = ?, image_url = ?, low_stock_threshold = ? WHERE id = ?').run(name, price, cost_price || 0, category_id, sku, stock, image_url || null, low_stock_threshold || 5, id);
+  db.prepare('INSERT INTO edit_logs (table_name, row_id, action, details) VALUES (?, ?, ?, ?)').run('items', id, 'UPDATE', `Updated item: ${name}`);
   res.json({ success: true });
 });
 
@@ -215,6 +217,15 @@ app.get('/api/reports/inventory', (req, res) => {
     out_of_stock_count: itemsWithValuation.filter(item => item.status === 'out').length,
   };
   res.json({ items: itemsWithValuation, summary });
+});
+
+app.get('/api/edit-logs', (req, res) => {
+  try {
+    const logs = db.prepare('SELECT * FROM edit_logs ORDER BY timestamp DESC LIMIT 100').all();
+    res.json(logs);
+  } catch (err) {
+    res.json([]);
+  }
 });
 
 app.use(express.static(path.join(__dirname, 'dist')));
