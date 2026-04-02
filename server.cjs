@@ -25,8 +25,8 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS edit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, table_name TEXT, row_id INTEGER, action TEXT, details TEXT, username TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP);
 `);
 
-try { db.exec("ALTER TABLE edit_logs ADD COLUMN timestamp DATETIME DEFAULT CURRENT_TIMESTAMP"); } catch(e) {}
-try { db.exec("ALTER TABLE edit_logs ADD COLUMN username TEXT"); } catch(e) {}
+try { db.exec("ALTER TABLE sales ADD COLUMN customer_id INTEGER"); } catch(e) {}
+try { db.exec("ALTER TABLE sales ADD COLUMN timestamp DATETIME DEFAULT CURRENT_TIMESTAMP"); } catch(e) {}
 
 const seed = db.transaction(() => {
   const insert = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
@@ -167,21 +167,45 @@ app.get('/api/customers', (req, res) => {
 app.post('/api/customers', (req, res) => {
   const { name, phone, email, address } = req.body;
   const info = db.prepare('INSERT INTO customers (name, phone, email, address) VALUES (?, ?, ?, ?)').run(name, phone, email, address);
+  try { db.prepare('INSERT INTO edit_logs (table_name, row_id, action, details) VALUES (?, ?, ?, ?)').run('customers', info.lastInsertRowid, 'CREATE', `Created customer: ${name}`); } catch(e) {}
   res.json({ id: info.lastInsertRowid, name, phone, email, address });
 });
 
+app.get('/api/customers/:id/sales', (req, res) => {
+  const { id } = req.params;
+  try {
+    const sales = db.prepare('SELECT * FROM sales WHERE customer_id = ? ORDER BY timestamp DESC').all(id);
+    res.json(sales);
+  } catch(e) {
+    res.json([]);
+  }
+});
+
+app.get('/api/items/:id/stock-history', (req, res) => {
+  const { id } = req.params;
+  try {
+    const history = db.prepare('SELECT * FROM stock_adjustments WHERE item_id = ? ORDER BY timestamp DESC').all(id);
+    res.json(history);
+  } catch(e) {
+    res.json([]);
+  }
+});
+
 app.post('/api/sales', (req, res) => {
-  const { items, subtotal, tax, total, payment_method } = req.body;
+  const { items, subtotal, tax, total, payment_method, customer_id } = req.body;
   if (!items || items.length === 0) return res.status(400).json({ error: 'Cart is empty' });
   
   const transaction = db.transaction(() => {
-    const saleInfo = db.prepare('INSERT INTO sales (subtotal, tax, total, payment_method) VALUES (?, ?, ?, ?)').run(subtotal, tax, total, payment_method);
+    const saleInfo = db.prepare('INSERT INTO sales (subtotal, tax, total, payment_method, customer_id) VALUES (?, ?, ?, ?, ?)').run(subtotal, tax, total, payment_method, customer_id || null);
     const saleId = saleInfo.lastInsertRowid;
     
     for (const item of items) {
       db.prepare('INSERT INTO sale_items (sale_id, item_id, quantity, price_at_sale) VALUES (?, ?, ?, ?)').run(saleId, item.id, item.quantity, item.price);
       db.prepare('UPDATE items SET stock = stock - ? WHERE id = ?').run(item.quantity, item.id);
     }
+    
+    try { db.prepare('INSERT INTO edit_logs (table_name, row_id, action, details) VALUES (?, ?, ?, ?)').run('sales', saleId, 'CREATE', `Sale #${saleId} - Total: ${total}`); } catch(e) {}
+    
     return saleId;
   });
   
