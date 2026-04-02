@@ -320,7 +320,12 @@ app.get('/api/orders/pending', (req, res) => {
     const orders = db.prepare(query).all(...params);
     const ordersWithItems = orders.map(order => {
       const items = db.prepare('SELECT sale_items.*, items.name FROM sale_items JOIN items ON sale_items.item_id = items.id WHERE sale_items.sale_id = ?').all(order.id);
-      return { ...order, items };
+      let customerData = {};
+      if (order.customer_id) {
+        const customer = db.prepare('SELECT name, phone, address FROM customers WHERE id = ?').get(order.customer_id);
+        customerData = { customer_name: customer?.name, customer_phone: customer?.phone, customer_address: customer?.address };
+      }
+      return { ...order, items, ...customerData };
     });
     res.json(ordersWithItems);
   } catch(e) {
@@ -390,8 +395,14 @@ app.get('/api/customers/:id/sales', (req, res) => {
   const { id } = req.params;
   try {
     const sales = db.prepare('SELECT * FROM sales WHERE customer_id = ? ORDER BY timestamp DESC').all(id);
-    res.json(sales);
+    const salesWithItems = sales.map(sale => {
+      const items = db.prepare('SELECT sale_items.*, items.name FROM sale_items JOIN items ON sale_items.item_id = items.id WHERE sale_items.sale_id = ?').all(sale.id);
+      const customer = db.prepare('SELECT name, phone, address FROM customers WHERE id = ?').get(sale.customer_id);
+      return { ...sale, items, customer_name: customer?.name, customer_phone: customer?.phone, customer_address: customer?.address };
+    });
+    res.json(salesWithItems);
   } catch(e) {
+    console.error('Error fetching customer sales:', e);
     res.json([]);
   }
 });
