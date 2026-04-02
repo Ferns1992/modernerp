@@ -56,6 +56,19 @@ app.get('/api/settings', (req, res) => {
   res.json(obj);
 });
 
+app.post('/api/settings', (req, res) => {
+  const { company_name, tax_rate, address, contact, logo_url, app_logo_url, currency } = req.body;
+  const stmt = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)');
+  if (company_name !== undefined) stmt.run('company_name', company_name);
+  if (tax_rate !== undefined) stmt.run('tax_rate', tax_rate);
+  if (address !== undefined) stmt.run('address', address);
+  if (contact !== undefined) stmt.run('contact', contact);
+  if (logo_url !== undefined) stmt.run('logo_url', logo_url);
+  if (app_logo_url !== undefined) stmt.run('app_logo_url', app_logo_url);
+  if (currency !== undefined) stmt.run('currency', currency);
+  res.json({ success: true });
+});
+
 app.get('/api/categories', (req, res) => {
   res.json(db.prepare('SELECT * FROM categories').all());
 });
