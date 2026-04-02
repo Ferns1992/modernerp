@@ -211,6 +211,16 @@ app.get('/api/customers/:id/sales', (req, res) => {
   }
 });
 
+app.get('/api/customers/:id/stats', (req, res) => {
+  const { id } = req.params;
+  try {
+    const stats = db.prepare('SELECT COUNT(*) as total_orders, COALESCE(SUM(total), 0) as total_spent FROM sales WHERE customer_id = ?').get(id);
+    res.json(stats);
+  } catch(e) {
+    res.json({ total_orders: 0, total_spent: 0 });
+  }
+});
+
 app.get('/api/items/:id/stock-history', (req, res) => {
   const { id } = req.params;
   try {
