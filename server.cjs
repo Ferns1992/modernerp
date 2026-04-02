@@ -31,6 +31,7 @@ try { db.exec("ALTER TABLE sales ADD COLUMN customer_id INTEGER"); } catch(e) {}
 try { db.exec("ALTER TABLE sales ADD COLUMN timestamp DATETIME DEFAULT CURRENT_TIMESTAMP"); } catch(e) {}
 try { db.exec("ALTER TABLE sales ADD COLUMN branch_id INTEGER"); } catch(e) {}
 try { db.exec("ALTER TABLE sales ADD COLUMN status TEXT DEFAULT 'completed'"); } catch(e) {}
+try { db.exec("ALTER TABLE sales ADD COLUMN completed_by TEXT"); } catch(e) {}
 try { db.exec("ALTER TABLE stock_adjustments ADD COLUMN timestamp DATETIME DEFAULT CURRENT_TIMESTAMP"); } catch(e) {}
 try { db.exec("ALTER TABLE users ADD COLUMN branch_id INTEGER"); } catch(e) {}
 
@@ -436,7 +437,7 @@ app.post('/api/sales', (req, res) => {
   const saleTimestamp = timestamp || new Date().toISOString();
   
   const transaction = db.transaction(() => {
-    const saleInfo = db.prepare('INSERT INTO sales (subtotal, tax, total, payment_method, customer_id, branch_id, timestamp, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(subtotal, tax, total, payment_method, customer_id || null, branch_id || null, saleTimestamp, status || 'completed');
+    const saleInfo = db.prepare('INSERT INTO sales (subtotal, tax, total, payment_method, customer_id, branch_id, timestamp, status, completed_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(subtotal, tax, total, payment_method, customer_id || null, branch_id || null, saleTimestamp, status || 'completed', username);
     const saleId = saleInfo.lastInsertRowid;
     
     for (const item of items) {
@@ -454,16 +455,50 @@ app.post('/api/sales', (req, res) => {
 });
 
 app.get('/api/reports/sales', (req, res) => {
-  const today = new Date().toISOString().split('T')[0];
-  const { branch_id } = req.query;
-  let query = "SELECT * FROM sales WHERE date(timestamp) = date(?)";
-  let params = [today];
+  const { branch_id, type, date } = req.query;
+  
+  let startDate, endDate;
+  const now = new Date();
+  
+  if (type === 'month') {
+    const [year, month] = (date || now.toISOString().slice(0, 7)).split('-');
+    startDate = `${year}-${month}-01`;
+    const lastDay = new Date(parseInt(year), parseInt(month) - 1, 0).getDate();
+    endDate = `${year}-${month}-${lastDay}`;
+  } else if (type === 'year') {
+    const year = date || now.getFullYear().toString();
+    startDate = `${year}-01-01`;
+    endDate = `${year}-12-31`;
+  } else {
+    startDate = date || now.toISOString().split('T')[0];
+    endDate = startDate;
+  }
+  
+  let query = "SELECT * FROM sales WHERE date(timestamp) >= date(?) AND date(timestamp) <= date(?)";
+  let params = [startDate, endDate];
   if (branch_id) {
     query += " AND branch_id = ?";
     params.push(branch_id);
   }
+  query += " ORDER BY timestamp DESC";
   const sales = db.prepare(query).all(...params);
-  res.json(sales);
+  
+  // Add customer and branch names
+  const salesWithDetails = sales.map(sale => {
+    let customerData = {};
+    if (sale.customer_id) {
+      const customer = db.prepare('SELECT name, phone, address FROM customers WHERE id = ?').get(sale.customer_id);
+      customerData = { customer_name: customer?.name, customer_phone: customer?.phone, customer_address: customer?.address };
+    }
+    let branchData = {};
+    if (sale.branch_id) {
+      const branch = db.prepare('SELECT name FROM branches WHERE id = ?').get(sale.branch_id);
+      branchData = { branch_name: branch?.name };
+    }
+    return { ...sale, ...customerData, ...branchData };
+  });
+  
+  res.json(salesWithDetails);
 });
 
 app.get('/api/reports/summary', (req, res) => {
@@ -486,11 +521,7 @@ app.get('/api/reports/summary', (req, res) => {
     endDate = startDate;
   }
   
-  console.log('Reports Summary - startDate:', startDate, 'endDate:', endDate, 'branch_id:', branch_id, 'type:', type, 'date:', date);
-  
-  let whereClause = "WHERE date(sales.timestamp) >= date(?) AND date(sales.timestamp) <= date(?)";
-  let params = [startDate, endDate];
-  console.log('Summary params:', params);
+  const today = new Date();
   if (branch_id) {
     whereClause += " AND sales.branch_id = ?";
     params.push(branch_id);
