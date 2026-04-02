@@ -1241,6 +1241,12 @@ const AdminPanel = ({ onUpdatePaymentMethods, currentUser }: { onUpdatePaymentMe
   const [newBranchVatId, setNewBranchVatId] = useState('');
   const [newBranchTaxRate, setNewBranchTaxRate] = useState('');
   const [branchError, setBranchError] = useState('');
+  const [editingBranch, setEditingBranch] = useState<any>(null);
+  const [editBranchName, setEditBranchName] = useState('');
+  const [editBranchAddress, setEditBranchAddress] = useState('');
+  const [editBranchContact, setEditBranchContact] = useState('');
+  const [editBranchVatId, setEditBranchVatId] = useState('');
+  const [editBranchTaxRate, setEditBranchTaxRate] = useState('');
   const [editingUser, setEditingUser] = useState<number | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [editBranchId, setEditBranchId] = useState<number | ''>('');
@@ -1371,16 +1377,48 @@ const AdminPanel = ({ onUpdatePaymentMethods, currentUser }: { onUpdatePaymentMe
   const handleDeleteBranch = async (id: number) => {
     if (!confirm('Are you sure you want to delete this branch?')) return;
     try {
-      const res = await fetch(`/api/branches/${id}`, { 
-        method: 'DELETE',
-        headers: { 'X-Username': currentUser?.username || 'System' }
-      });
+      const res = await fetch(`/api/branches/${id}`, { method: 'DELETE' });
       if (res.ok) {
         fetchBranches();
+      } else {
+        setBranchError('Failed to delete branch');
       }
     } catch (err) {
-      console.error("Failed to delete branch");
+      console.error("Failed to delete branch", err);
     }
+  };
+
+  const handleEditBranch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingBranch || !editBranchName.trim()) return;
+    setBranchError('');
+
+    try {
+      const res = await fetch(`/api/branches/${editingBranch.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: editBranchName, address: editBranchAddress, contact: editBranchContact, vat_id: editBranchVatId, tax_rate: editBranchTaxRate }),
+      });
+      
+      if (res.ok) {
+        setEditingBranch(null);
+        fetchBranches();
+      } else {
+        const data = await res.json();
+        setBranchError(data.error || 'Failed to update branch');
+      }
+    } catch (err) {
+      console.error("Failed to update branch", err);
+    }
+  };
+
+  const openEditBranch = (branch: any) => {
+    setEditingBranch(branch);
+    setEditBranchName(branch.name);
+    setEditBranchAddress(branch.address || '');
+    setEditBranchContact(branch.contact || '');
+    setEditBranchVatId(branch.vat_id || '');
+    setEditBranchTaxRate(branch.tax_rate || '');
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -1652,17 +1690,104 @@ const AdminPanel = ({ onUpdatePaymentMethods, currentUser }: { onUpdatePaymentMe
                 {branch.vat_id && <span className="text-xs text-slate-500 block">VAT: {branch.vat_id}</span>}
                 {branch.tax_rate && <span className="text-xs text-slate-500 block">Tax: {branch.tax_rate}%</span>}
               </div>
-              <button 
-                onClick={() => handleDeleteBranch(branch.id)}
-                className="text-slate-400 dark:text-slate-500 hover:text-red-500 transition-colors p-2 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20"
-                title="Delete"
-              >
-                <Trash2 size={18} />
-              </button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => openEditBranch(branch)}
+                  className="text-slate-400 dark:text-slate-500 hover:text-indigo-500 transition-colors p-2 rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                  title="Edit"
+                >
+                  <Edit3 size={18} />
+                </button>
+                <button 
+                  onClick={() => handleDeleteBranch(branch.id)}
+                  className="text-slate-400 dark:text-slate-500 hover:text-red-500 transition-colors p-2 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20"
+                  title="Delete"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
             </div>
           ))}
         </div>
       </div>
+
+      {editingBranch && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl dark:shadow-none p-6 max-w-md w-full">
+            <h3 className="text-lg font-bold mb-4">Edit Branch</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Update branch details.</p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 tracking-wider">Branch Name</label>
+                <input 
+                  type="text" 
+                  className="input w-full text-sm" 
+                  value={editBranchName}
+                  onChange={e => setEditBranchName(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 tracking-wider">Address</label>
+                <input 
+                  type="text" 
+                  className="input w-full text-sm" 
+                  value={editBranchAddress}
+                  onChange={e => setEditBranchAddress(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 tracking-wider">Contact</label>
+                <input 
+                  type="text" 
+                  className="input w-full text-sm" 
+                  value={editBranchContact}
+                  onChange={e => setEditBranchContact(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 tracking-wider">VAT ID</label>
+                <input 
+                  type="text" 
+                  className="input w-full text-sm" 
+                  value={editBranchVatId}
+                  onChange={e => setEditBranchVatId(e.target.value)}
+                  placeholder="e.g. GB123456789"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 tracking-wider">Tax Rate (%)</label>
+                <input 
+                  type="number" 
+                  className="input w-full text-sm" 
+                  value={editBranchTaxRate}
+                  onChange={e => setEditBranchTaxRate(e.target.value)}
+                  step="0.01"
+                  placeholder="e.g. 12"
+                />
+              </div>
+            </div>
+            {branchError && (
+              <div className="p-3 bg-red-50 text-red-600 rounded-xl text-sm font-bold mt-4">
+                {branchError}
+              </div>
+            )}
+            <div className="flex gap-3 mt-6">
+              <button 
+                onClick={handleEditBranch}
+                className="btn btn-primary flex-1"
+              >
+                Update
+              </button>
+              <button 
+                onClick={() => { setEditingBranch(null); setBranchError(''); }}
+                className="btn btn-secondary flex-1"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Payment Methods Section */}
       <div className="card p-4 lg:p-8">
