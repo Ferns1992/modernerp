@@ -29,7 +29,9 @@ try { db.exec("ALTER TABLE branches ADD COLUMN tax_rate TEXT DEFAULT ''"); } cat
 try { db.exec("ALTER TABLE branches ADD COLUMN vat_id TEXT DEFAULT ''"); } catch(e) {}
 try { db.exec("ALTER TABLE sales ADD COLUMN customer_id INTEGER"); } catch(e) {}
 try { db.exec("ALTER TABLE sales ADD COLUMN timestamp DATETIME DEFAULT CURRENT_TIMESTAMP"); } catch(e) {}
+try { db.exec("ALTER TABLE sales ADD COLUMN branch_id INTEGER"); } catch(e) {}
 try { db.exec("ALTER TABLE stock_adjustments ADD COLUMN timestamp DATETIME DEFAULT CURRENT_TIMESTAMP"); } catch(e) {}
+try { db.exec("ALTER TABLE users ADD COLUMN branch_id INTEGER"); } catch(e) {}
 
 const seed = db.transaction(() => {
   const insert = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
@@ -165,6 +167,67 @@ app.post('/api/auth/login', (req, res) => {
   }
 });
 
+app.post('/api/auth/register', (req, res) => {
+  const { username, password, role, branch_id } = req.body;
+  if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
+  const hash = hashPassword(password);
+  try {
+    const info = db.prepare('INSERT INTO users (username, password_hash, role, branch_id) VALUES (?, ?, ?, ?)').run(username, hash, role || 'cashier', branch_id || null);
+    try { db.prepare('INSERT INTO edit_logs (table_name, row_id, action, details) VALUES (?, ?, ?, ?)').run('users', info.lastInsertRowid, 'CREATE', `Created user: ${username} (${role || 'cashier'})`); } catch(e) {}
+    res.json({ success: true, id: info.lastInsertRowid, username, role: role || 'cashier' });
+  } catch(e) {
+    res.status(400).json({ error: 'Username already exists' });
+  }
+});
+
+app.get('/api/users', (req, res) => {
+  try {
+    const users = db.prepare('SELECT id, username, role, branch_id FROM users').all();
+    res.json(users);
+  } catch(e) {
+    res.json([]);
+  }
+});
+
+app.get('/api/users/:id', (req, res) => {
+  const { id } = req.params;
+  try {
+    const user = db.prepare('SELECT id, username, role, branch_id FROM users WHERE id = ?').get(id);
+    if (user) res.json(user);
+    else res.status(404).json({ error: 'User not found' });
+  } catch(e) {
+    res.status(500).json({ error: 'Error fetching user' });
+  }
+});
+
+app.put('/api/users/:id', (req, res) => {
+  const { id } = req.params;
+  const { password, branch_id } = req.body;
+  try {
+    if (password) {
+      const hash = hashPassword(password);
+      db.prepare('UPDATE users SET password_hash = ?, branch_id = ? WHERE id = ?').run(hash, branch_id || null, id);
+    } else if (branch_id !== undefined) {
+      db.prepare('UPDATE users SET branch_id = ? WHERE id = ?').run(branch_id, id);
+    }
+    try { db.prepare('INSERT INTO edit_logs (table_name, row_id, action, details) VALUES (?, ?, ?, ?)').run('users', id, 'UPDATE', 'Updated user'); } catch(e) {}
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ error: 'Error updating user' });
+  }
+});
+
+app.delete('/api/users/:id', (req, res) => {
+  const { id } = req.params;
+  try {
+    db.prepare('DELETE FROM users WHERE id = ?').run(id);
+    try { db.prepare('INSERT INTO edit_logs (table_name, row_id, action, details) VALUES (?, ?, ?, ?)').run('users', id, 'DELETE', 'Deleted user'); } catch(e) {}
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ error: 'Error deleting user' });
+  }
+});
+
 app.get('/api/payment-methods', (req, res) => {
   try {
     res.json(db.prepare('SELECT * FROM payment_methods').all());
@@ -243,11 +306,11 @@ app.get('/api/items/:id/stock-history', (req, res) => {
 });
 
 app.post('/api/sales', (req, res) => {
-  const { items, subtotal, tax, total, payment_method, customer_id } = req.body;
+  const { items, subtotal, tax, total, payment_method, customer_id, branch_id, timestamp } = req.body;
   if (!items || items.length === 0) return res.status(400).json({ error: 'Cart is empty' });
   
   const transaction = db.transaction(() => {
-    const saleInfo = db.prepare('INSERT INTO sales (subtotal, tax, total, payment_method, customer_id) VALUES (?, ?, ?, ?, ?)').run(subtotal, tax, total, payment_method, customer_id || null);
+    const saleInfo = db.prepare('INSERT INTO sales (subtotal, tax, total, payment_method, customer_id, branch_id, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)').run(subtotal, tax, total, payment_method, customer_id || null, branch_id || null, timestamp || null);
     const saleId = saleInfo.lastInsertRowid;
     
     for (const item of items) {
@@ -266,14 +329,28 @@ app.post('/api/sales', (req, res) => {
 
 app.get('/api/reports/sales', (req, res) => {
   const today = new Date().toISOString().split('T')[0];
-  const sales = db.prepare("SELECT * FROM sales WHERE date(timestamp) = date(?)").all(today);
+  const { branch_id } = req.query;
+  let query = "SELECT * FROM sales WHERE date(timestamp) = date(?)";
+  let params = [today];
+  if (branch_id) {
+    query += " AND branch_id = ?";
+    params.push(branch_id);
+  }
+  const sales = db.prepare(query).all(...params);
   res.json(sales);
 });
 
 app.get('/api/reports/summary', (req, res) => {
   const today = new Date().toISOString().split('T')[0];
-  const summary = db.prepare("SELECT COUNT(*) as transaction_count, COALESCE(SUM(total), 0) as total_sales, payment_method FROM sales WHERE date(timestamp) = date(?) GROUP BY payment_method").all(today);
-  const items = db.prepare("SELECT items.name, SUM(sale_items.quantity) as total_quantity, SUM(sale_items.quantity * sale_items.price_at_sale) as total_revenue FROM sale_items JOIN items ON sale_items.item_id = items.id JOIN sales ON sale_items.sale_id = sales.id WHERE date(sales.timestamp) = date(?) GROUP BY items.id ORDER BY total_revenue DESC").all(today);
+  const { branch_id } = req.query;
+  let whereClause = "WHERE date(sales.timestamp) = date(?)";
+  let params = [today];
+  if (branch_id) {
+    whereClause += " AND sales.branch_id = ?";
+    params.push(branch_id);
+  }
+  const summary = db.prepare(`SELECT COUNT(*) as transaction_count, COALESCE(SUM(total), 0) as total_sales, payment_method FROM sales ${whereClause} GROUP BY payment_method`).all(...params);
+  const items = db.prepare(`SELECT items.name, SUM(sale_items.quantity) as total_quantity, SUM(sale_items.quantity * sale_items.price_at_sale) as total_revenue FROM sale_items JOIN items ON sale_items.item_id = items.id JOIN sales ON sale_items.sale_id = sales.id ${whereClause} GROUP BY items.id ORDER BY total_revenue DESC`).all(...params);
   res.json({ summary, items });
 });
 
