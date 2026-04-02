@@ -1696,7 +1696,7 @@ const AdminPanel = ({ onUpdatePaymentMethods, currentUser }: { onUpdatePaymentMe
                   className="text-slate-400 dark:text-slate-500 hover:text-indigo-500 transition-colors p-2 rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
                   title="Edit"
                 >
-                  <Edit3 size={18} />
+                  <Edit size={18} />
                 </button>
                 <button 
                   onClick={() => handleDeleteBranch(branch.id)}
