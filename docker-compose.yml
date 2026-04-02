@@ -1,6 +1,7 @@
 services:
   modernerp:
     build: .
+    image: modernerp:latest
     ports:
       - "4000:4000"
     environment:
