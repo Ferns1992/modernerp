@@ -377,10 +377,28 @@ app.get('/api/reports/sales', (req, res) => {
 });
 
 app.get('/api/reports/summary', (req, res) => {
-  const today = new Date().toISOString().split('T')[0];
-  const { branch_id } = req.query;
-  let whereClause = "WHERE date(sales.timestamp) = date(?)";
-  let params = [today];
+  const { branch_id, type, date } = req.query;
+  
+  let startDate, endDate;
+  const now = new Date();
+  
+  if (type === 'month') {
+    const [year, month] = (date || now.toISOString().slice(0, 7)).split('-');
+    startDate = `${year}-${month}-01`;
+    const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+    endDate = `${year}-${month}-${lastDay}`;
+  } else if (type === 'year') {
+    const year = date || now.getFullYear().toString();
+    startDate = `${year}-01-01`;
+    endDate = `${year}-12-31`;
+  } else {
+    const d = date ? new Date(date) : now;
+    startDate = d.toISOString().split('T')[0];
+    endDate = startDate;
+  }
+  
+  let whereClause = "WHERE date(sales.timestamp) >= date(?) AND date(sales.timestamp) <= date(?)";
+  let params = [startDate, endDate];
   if (branch_id) {
     whereClause += " AND sales.branch_id = ?";
     params.push(branch_id);
@@ -388,6 +406,38 @@ app.get('/api/reports/summary', (req, res) => {
   const summary = db.prepare(`SELECT COUNT(*) as transaction_count, COALESCE(SUM(total), 0) as total_sales, payment_method FROM sales ${whereClause} GROUP BY payment_method`).all(...params);
   const items = db.prepare(`SELECT items.name, SUM(sale_items.quantity) as total_quantity, SUM(sale_items.quantity * sale_items.price_at_sale) as total_revenue FROM sale_items JOIN items ON sale_items.item_id = items.id JOIN sales ON sale_items.sale_id = sales.id ${whereClause} GROUP BY items.id ORDER BY total_revenue DESC`).all(...params);
   res.json({ summary, items });
+});
+
+app.get('/api/reports/sales', (req, res) => {
+  const { branch_id, type, date } = req.query;
+  
+  let startDate, endDate;
+  const now = new Date();
+  
+  if (type === 'month') {
+    const [year, month] = (date || now.toISOString().slice(0, 7)).split('-');
+    startDate = `${year}-${month}-01`;
+    const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+    endDate = `${year}-${month}-${lastDay}`;
+  } else if (type === 'year') {
+    const year = date || now.getFullYear().toString();
+    startDate = `${year}-01-01`;
+    endDate = `${year}-12-31`;
+  } else {
+    const d = date ? new Date(date) : now;
+    startDate = d.toISOString().split('T')[0];
+    endDate = startDate;
+  }
+  
+  let query = "SELECT * FROM sales WHERE date(timestamp) >= date(?) AND date(timestamp) <= date(?)";
+  let params = [startDate, endDate];
+  if (branch_id) {
+    query += " AND branch_id = ?";
+    params.push(branch_id);
+  }
+  query += " ORDER BY timestamp DESC";
+  const sales = db.prepare(query).all(...params);
+  res.json(sales);
 });
 
 app.get('/api/reports/inventory', (req, res) => {
