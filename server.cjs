@@ -343,6 +343,7 @@ app.get('/api/items/:id/stock-history', (req, res) => {
 app.post('/api/sales', (req, res) => {
   const { items, subtotal, tax, total, payment_method, customer_id, branch_id, timestamp, status } = req.body;
   const username = req.headers['x-username'] || 'System';
+  console.log('Sale created:', { subtotal, tax, total, payment_method, customer_id, branch_id, timestamp, status });
   if (!items || items.length === 0) return res.status(400).json({ error: 'Cart is empty' });
   
   const transaction = db.transaction(() => {
@@ -396,16 +397,18 @@ app.get('/api/reports/summary', (req, res) => {
     endDate = startDate;
   }
   
-  console.log('Reports Summary - startDate:', startDate, 'endDate:', endDate, 'branch_id:', branch_id);
+  console.log('Reports Summary - startDate:', startDate, 'endDate:', endDate, 'branch_id:', branch_id, 'type:', type, 'date:', date);
   
   let whereClause = "WHERE date(sales.timestamp) >= date(?) AND date(sales.timestamp) <= date(?)";
   let params = [startDate, endDate];
+  console.log('Summary params:', params);
   if (branch_id) {
     whereClause += " AND sales.branch_id = ?";
     params.push(branch_id);
   }
   const summary = db.prepare(`SELECT COUNT(*) as transaction_count, COALESCE(SUM(total), 0) as total_sales, payment_method FROM sales ${whereClause} GROUP BY payment_method`).all(...params);
   const items = db.prepare(`SELECT items.name, SUM(sale_items.quantity) as total_quantity, SUM(sale_items.quantity * sale_items.price_at_sale) as total_revenue FROM sale_items JOIN items ON sale_items.item_id = items.id JOIN sales ON sale_items.sale_id = sales.id ${whereClause} GROUP BY items.id ORDER BY total_revenue DESC`).all(...params);
+  console.log('Summary result:', summary.length, 'items:', items.length);
   res.json({ summary, items });
 });
 
@@ -429,17 +432,18 @@ app.get('/api/reports/sales', (req, res) => {
     endDate = startDate;
   }
   
-  console.log('Reports Sales - startDate:', startDate, 'endDate:', endDate, 'branch_id:', branch_id);
+  console.log('Reports Sales - startDate:', startDate, 'endDate:', endDate, 'branch_id:', branch_id, 'type:', type, 'date:', date);
   
   let query = "SELECT * FROM sales WHERE date(timestamp) >= date(?) AND date(timestamp) <= date(?)";
   let params = [startDate, endDate];
+  console.log('Query params:', params);
   if (branch_id) {
     query += " AND branch_id = ?";
     params.push(branch_id);
   }
   query += " ORDER BY timestamp DESC";
   const sales = db.prepare(query).all(...params);
-  console.log('Found sales:', sales.length);
+  console.log('Found sales:', sales.length, sales.slice(0, 2));
   res.json(sales);
 });
 
