@@ -451,8 +451,8 @@ const Receipt = ({ sale, items, settings, branches = [] }: { sale: any, items: a
       style={densityStyles}
     >
       <div className="text-center mb-2">
-        {settings.logo_url && (
-          <img src={settings.logo_url} alt="Company Logo" className="w-16 h-16 mx-auto mb-2 object-contain" referrerPolicy="no-referrer" />
+        {(branch?.logo_url || settings.logo_url) && (
+          <img src={branch?.logo_url || settings.logo_url} alt="Company Logo" className="w-16 h-16 mx-auto mb-2 object-contain" referrerPolicy="no-referrer" />
         )}
         <h2 className="text-lg font-bold uppercase">{branch?.name || settings.company_name || 'MODERN STORE'}</h2>
         <p>{branch?.address || settings.address || '123 Business Street, City'}</p>
