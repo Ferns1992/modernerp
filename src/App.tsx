@@ -1401,6 +1401,7 @@ const AdminPanel = ({ onUpdatePaymentMethods, currentUser }: { onUpdatePaymentMe
   const [newBranchContact, setNewBranchContact] = useState('');
   const [newBranchVatId, setNewBranchVatId] = useState('');
   const [newBranchTaxRate, setNewBranchTaxRate] = useState('');
+  const [newBranchLogoUrl, setNewBranchLogoUrl] = useState('');
   const [branchError, setBranchError] = useState('');
   const [editingBranch, setEditingBranch] = useState<any>(null);
   const [editBranchName, setEditBranchName] = useState('');
@@ -1408,6 +1409,7 @@ const AdminPanel = ({ onUpdatePaymentMethods, currentUser }: { onUpdatePaymentMe
   const [editBranchContact, setEditBranchContact] = useState('');
   const [editBranchVatId, setEditBranchVatId] = useState('');
   const [editBranchTaxRate, setEditBranchTaxRate] = useState('');
+  const [editBranchLogoUrl, setEditBranchLogoUrl] = useState('');
   const [editingUser, setEditingUser] = useState<number | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [editBranchId, setEditBranchId] = useState<number | ''>('');
@@ -1516,7 +1518,7 @@ const AdminPanel = ({ onUpdatePaymentMethods, currentUser }: { onUpdatePaymentMe
           'Content-Type': 'application/json',
           'X-Username': currentUser?.username || 'System'
         },
-        body: JSON.stringify({ name: newBranchName, address: newBranchAddress, contact: newBranchContact, vat_id: newBranchVatId, tax_rate: newBranchTaxRate }),
+        body: JSON.stringify({ name: newBranchName, address: newBranchAddress, contact: newBranchContact, vat_id: newBranchVatId, tax_rate: newBranchTaxRate, logo_url: newBranchLogoUrl }),
       });
       
       if (res.ok) {
@@ -1525,6 +1527,7 @@ const AdminPanel = ({ onUpdatePaymentMethods, currentUser }: { onUpdatePaymentMe
         setNewBranchContact('');
         setNewBranchVatId('');
         setNewBranchTaxRate('');
+        setNewBranchLogoUrl('');
         fetchBranches();
       } else {
         const data = await res.json();
@@ -1558,7 +1561,7 @@ const AdminPanel = ({ onUpdatePaymentMethods, currentUser }: { onUpdatePaymentMe
       const res = await fetch(`/api/branches/${editingBranch.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: editBranchName, address: editBranchAddress, contact: editBranchContact, vat_id: editBranchVatId, tax_rate: editBranchTaxRate }),
+        body: JSON.stringify({ name: editBranchName, address: editBranchAddress, contact: editBranchContact, vat_id: editBranchVatId, tax_rate: editBranchTaxRate, logo_url: editBranchLogoUrl }),
       });
       
       if (res.ok) {
@@ -1580,6 +1583,7 @@ const AdminPanel = ({ onUpdatePaymentMethods, currentUser }: { onUpdatePaymentMe
     setEditBranchContact(branch.contact || '');
     setEditBranchVatId(branch.vat_id || '');
     setEditBranchTaxRate(branch.tax_rate || '');
+    setEditBranchLogoUrl(branch.logo_url || '');
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -1829,6 +1833,16 @@ const AdminPanel = ({ onUpdatePaymentMethods, currentUser }: { onUpdatePaymentMe
               onChange={(e) => setNewBranchTaxRate(e.target.value)}
             />
           </div>
+          <div className="flex-1">
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 tracking-wider">Logo URL</label>
+            <input 
+              type="text" 
+              placeholder="https://..." 
+              className="input w-full text-sm"
+              value={newBranchLogoUrl}
+              onChange={(e) => setNewBranchLogoUrl(e.target.value)}
+            />
+          </div>
           <button type="submit" className="btn btn-primary px-6 py-3 text-sm font-bold uppercase tracking-widest whitespace-nowrap">
             <Plus size={18} className="mr-2" />
             Add Branch
@@ -1925,6 +1939,17 @@ const AdminPanel = ({ onUpdatePaymentMethods, currentUser }: { onUpdatePaymentMe
                   step="0.01"
                   placeholder="e.g. 12"
                 />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 tracking-wider">Logo URL</label>
+                <input 
+                  type="text" 
+                  className="input w-full text-sm" 
+                  value={editBranchLogoUrl}
+                  onChange={e => setEditBranchLogoUrl(e.target.value)}
+                  placeholder="https://example.com/logo.png"
+                />
+                {editBranchLogoUrl && <img src={editBranchLogoUrl} alt="Preview" className="mt-2 h-16 object-contain" />}
               </div>
             </div>
             {branchError && (
