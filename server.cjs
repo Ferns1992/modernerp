@@ -578,7 +578,7 @@ app.get('/api/reports/summary', (req, res) => {
   
   console.log('Summary - startDate:', startDate, 'endDate:', endDate, 'branch_id:', branch_id);
   
-  let whereClause = "WHERE date(sales.timestamp) >= date(?) AND date(sales.timestamp) <= date(?)";
+  let whereClause = "WHERE date(sales.timestamp) >= date(?) AND date(sales.timestamp) <= date(?) AND (sales.status IS NULL OR sales.status = 'completed' OR sales.status = 'pending' OR sales.status = 'preparing' OR sales.status = 'ready')";
   let params = [startDate, endDate];
   if (branch_id) {
     whereClause += " AND sales.branch_id = ?";
@@ -587,8 +587,19 @@ app.get('/api/reports/summary', (req, res) => {
   console.log('Summary params:', params);
   const summary = db.prepare(`SELECT COUNT(*) as transaction_count, COALESCE(SUM(total), 0) as total_sales, payment_method FROM sales ${whereClause} GROUP BY payment_method`).all(...params);
   const items = db.prepare(`SELECT items.name, SUM(sale_items.quantity) as total_quantity, SUM(sale_items.quantity * sale_items.price_at_sale) as total_revenue FROM sale_items JOIN items ON sale_items.item_id = items.id JOIN sales ON sale_items.sale_id = sales.id ${whereClause} GROUP BY items.id ORDER BY total_revenue DESC`).all(...params);
-  console.log('Summary result:', summary.length, 'items:', items.length);
-  res.json({ summary, items });
+  
+  // Get refund/void stats
+  let statsClause = "WHERE date(sales.timestamp) >= date(?) AND date(sales.timestamp) <= date(?)";
+  let statsParams = [startDate, endDate];
+  if (branch_id) {
+    statsClause += " AND branch_id = ?";
+    statsParams.push(branch_id);
+  }
+  const refundTotal = db.prepare(`SELECT COALESCE(SUM(total), 0) as total FROM sales ${statsClause} AND status = 'refunded'`).get(...statsParams);
+  const voidTotal = db.prepare(`SELECT COALESCE(SUM(total), 0) as total FROM sales ${statsClause} AND status = 'voided'`).get(...statsParams);
+  
+  console.log('Summary result:', summary.length, 'items:', items.length, 'refunded:', refundTotal?.total, 'voided:', voidTotal?.total);
+  res.json({ summary, items, refunded_total: refundTotal?.total || 0, voided_total: voidTotal?.total || 0 });
 });
 
 app.get('/api/reports/sales', (req, res) => {
@@ -623,7 +634,13 @@ app.get('/api/reports/sales', (req, res) => {
   query += " ORDER BY timestamp DESC";
   const sales = db.prepare(query).all(...params);
   console.log('Found sales:', sales.length, sales.slice(0, 2));
-  res.json(sales);
+  
+  // Calculate totals excluding refund/void
+  const validSales = sales.filter(s => !s.status || s.status === 'completed' || s.status === 'pending' || s.status === 'preparing' || s.status === 'ready');
+  const refundedTotal = sales.filter(s => s.status === 'refunded').reduce((sum, s) => sum + (s.total || 0), 0);
+  const voidedTotal = sales.filter(s => s.status === 'voided').reduce((sum, s) => sum + (s.total || 0), 0);
+  
+  res.json({ sales, valid_sales: validSales, refunded_total: refundedTotal, voided_total: voidedTotal });
 });
 
 app.get('/api/reports/inventory', (req, res) => {
