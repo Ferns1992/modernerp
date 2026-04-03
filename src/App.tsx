@@ -1401,7 +1401,6 @@ const AdminPanel = ({ onUpdatePaymentMethods, currentUser }: { onUpdatePaymentMe
   const [newBranchContact, setNewBranchContact] = useState('');
   const [newBranchVatId, setNewBranchVatId] = useState('');
   const [newBranchTaxRate, setNewBranchTaxRate] = useState('');
-  const [newBranchLogoUrl, setNewBranchLogoUrl] = useState('');
   const [branchError, setBranchError] = useState('');
   const [editingBranch, setEditingBranch] = useState<any>(null);
   const [editBranchName, setEditBranchName] = useState('');
@@ -1518,7 +1517,7 @@ const AdminPanel = ({ onUpdatePaymentMethods, currentUser }: { onUpdatePaymentMe
           'Content-Type': 'application/json',
           'X-Username': currentUser?.username || 'System'
         },
-        body: JSON.stringify({ name: newBranchName, address: newBranchAddress, contact: newBranchContact, vat_id: newBranchVatId, tax_rate: newBranchTaxRate, logo_url: newBranchLogoUrl }),
+        body: JSON.stringify({ name: newBranchName, address: newBranchAddress, contact: newBranchContact, vat_id: newBranchVatId, tax_rate: newBranchTaxRate }),
       });
       
       if (res.ok) {
@@ -1833,16 +1832,6 @@ const AdminPanel = ({ onUpdatePaymentMethods, currentUser }: { onUpdatePaymentMe
               onChange={(e) => setNewBranchTaxRate(e.target.value)}
             />
           </div>
-          <div className="flex-1">
-            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 tracking-wider">Logo URL</label>
-            <input 
-              type="text" 
-              placeholder="https://..." 
-              className="input w-full text-sm"
-              value={newBranchLogoUrl}
-              onChange={(e) => setNewBranchLogoUrl(e.target.value)}
-            />
-          </div>
           <button type="submit" className="btn btn-primary px-6 py-3 text-sm font-bold uppercase tracking-widest whitespace-nowrap">
             <Plus size={18} className="mr-2" />
             Add Branch
@@ -1858,12 +1847,21 @@ const AdminPanel = ({ onUpdatePaymentMethods, currentUser }: { onUpdatePaymentMe
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {branches.map((branch) => (
             <div key={branch.id} className="flex items-start justify-between p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-700 hover:border-indigo-200 dark:hover:border-indigo-900 transition-all">
-              <div>
-                <span className="font-bold text-slate-700 dark:text-slate-200 capitalize text-sm block">{branch.name}</span>
-                <span className="text-xs text-slate-500 block">{branch.address}</span>
-                <span className="text-xs text-slate-500 block">{branch.contact}</span>
-                {branch.vat_id && <span className="text-xs text-slate-500 block">VAT: {branch.vat_id}</span>}
-                {branch.tax_rate && <span className="text-xs text-slate-500 block">Tax: {branch.tax_rate}%</span>}
+              <div className="flex gap-3">
+                {branch.logo_url ? (
+                  <img src={branch.logo_url} alt={branch.name} className="w-12 h-12 object-contain rounded-lg" />
+                ) : (
+                  <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg flex items-center justify-center">
+                    <Store size={20} className="text-indigo-600" />
+                  </div>
+                )}
+                <div>
+                  <span className="font-bold text-slate-700 dark:text-slate-200 capitalize text-sm block">{branch.name}</span>
+                  <span className="text-xs text-slate-500 block">{branch.address}</span>
+                  <span className="text-xs text-slate-500 block">{branch.contact}</span>
+                  {branch.vat_id && <span className="text-xs text-slate-500 block">VAT: {branch.vat_id}</span>}
+                  {branch.tax_rate && <span className="text-xs text-slate-500 block">Tax: {branch.tax_rate}%</span>}
+                </div>
               </div>
               <div className="flex gap-2">
                 <button 
@@ -1941,13 +1939,30 @@ const AdminPanel = ({ onUpdatePaymentMethods, currentUser }: { onUpdatePaymentMe
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 tracking-wider">Logo URL</label>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 tracking-wider">Logo</label>
                 <input 
-                  type="text" 
-                  className="input w-full text-sm" 
-                  value={editBranchLogoUrl}
-                  onChange={e => setEditBranchLogoUrl(e.target.value)}
-                  placeholder="https://example.com/logo.png"
+                  type="file" 
+                  accept="image/*"
+                  className="input w-full text-sm"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file || !editingBranch) return;
+                    const formData = new FormData();
+                    formData.append('logo', file);
+                    try {
+                      const res = await fetch(`/api/branches/${editingBranch.id}/logo`, {
+                        method: 'POST',
+                        body: formData
+                      });
+                      if (res.ok) {
+                        const data = await res.json();
+                        setEditBranchLogoUrl(data.logo_url);
+                        fetchBranches();
+                      }
+                    } catch (err) {
+                      alert('Failed to upload logo');
+                    }
+                  }}
                 />
                 {editBranchLogoUrl && <img src={editBranchLogoUrl} alt="Preview" className="mt-2 h-16 object-contain" />}
               </div>

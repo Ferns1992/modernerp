@@ -308,6 +308,14 @@ app.post('/api/upload', upload.single('image'), (req, res) => {
   res.json({ url: `/uploads/${req.file.filename}` });
 });
 
+app.post('/api/branches/:id/logo', upload.single('logo'), (req, res) => {
+  const { id } = req.params;
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  const logoUrl = `/uploads/${req.file.filename}`;
+  db.prepare('UPDATE branches SET logo_url = ? WHERE id = ?').run(logoUrl, id);
+  res.json({ success: true, logo_url: logoUrl });
+});
+
 app.get('/api/orders/pending', (req, res) => {
   const { branch_id, date, include_completed } = req.query;
   let query;
