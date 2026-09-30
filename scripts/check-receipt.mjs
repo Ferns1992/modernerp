@@ -46,17 +46,19 @@ const check = (label, cond, detail = '') => {
 };
 
 for (const branch of BRANCHES) {
-  const settings = { ...GLOBAL, ...branch };
+  // Deliberately hand the component the *global* peso settings: the receipt
+  // must still come out in the branch's own currency.
+  const settings = { ...GLOBAL };
   const subtotal = ITEMS.reduce((a, i) => a + i.price_at_sale * i.quantity, 0);
   const tax = Math.round(subtotal * (branch.tax_rate / 100) * 100) / 100;
-  const sale = { id: 4242, subtotal, tax, total: subtotal + tax, discount: 0, payment_method: 'cash', customer_name: 'Test Buyer', customer_phone: '+63 900 000 0000' };
+  const sale = { id: 4242, branch_id: branch.id, subtotal, tax, total: subtotal + tax, discount: 0, payment_method: 'cash', customer_name: 'Test Buyer', customer_phone: '+63 900 000 0000' };
 
   const html = renderToStaticMarkup(React.createElement(Receipt, { sale, items: ITEMS, settings, branches: [branch] }));
   const text = html.replace(/<[^>]+>/g, ' ').replace(/&#x20b9;/g, '\u20b9').replace(/&#x20b1;/g, '\u20b1').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
 
   console.log(`\n=== ${branch.name} (${branch.country}) ===`);
   check('company letterhead image', html.includes(branch.receipt_logo_url), branch.receipt_logo_url);
-  check('company name on receipt', text.includes(branch.name.toUpperCase()), branch.name);
+  check('company name on receipt', text.toUpperCase().includes(branch.name.toUpperCase()), branch.name);
   check('currency symbol used', text.includes(branch.currency), `symbol ${branch.currency}`);
   check('no foreign currency symbol', !text.includes(BRANCHES.find((b) => b.id !== branch.id).currency));
   check('tax label is country-correct', branch.country === 'India' ? /GST \(18%\)/.test(text) : /VAT \(12%\)/.test(text), branch.country === 'India' ? 'GST (18%)' : 'VAT (12%)');

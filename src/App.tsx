@@ -445,8 +445,11 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, currentUser, settings, isO
 export const Receipt = ({ sale, items, settings, branches = [] }: { sale: any, items: any[], settings: Settings, branches?: any[] }) => {
   const saleDate = sale.timestamp ? new Date(sale.timestamp) : new Date();
   const branch = branches.find(b => b.id === sale.branch_id);
-  const taxRate = branch?.tax_rate ? parseFloat(branch.tax_rate) : (parseFloat(settings.tax_rate) || 0);
-  const currency = settings.currency || '₱';
+  // Take the rate and symbol from the *sale's own* branch, not the global
+  // settings: with an admin viewing every company at once, settings are not
+  // branch-scoped and an Indian sale would otherwise print in pesos.
+  const taxRate = branch?.tax_rate != null && branch.tax_rate !== '' ? Number(branch.tax_rate) : (parseFloat(settings.tax_rate) || 0);
+  const currency = branch?.currency || settings.currency || '₱';
 
   // Thermal Printer settings
   const paperSize = settings.thermal_paper_size || '80mm';
