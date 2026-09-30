@@ -167,6 +167,13 @@ ensureColumn("sales", "completed_at_branch_id", "ALTER TABLE sales ADD COLUMN co
 ensureColumn("users", "branch_id", "ALTER TABLE users ADD COLUMN branch_id INTEGER");
 ensureColumn("users", "created_at", "ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP");
 ensureColumn("branches", "vat_id", "ALTER TABLE branches ADD COLUMN vat_id TEXT");
+ensureColumn("branches", "currency", "ALTER TABLE branches ADD COLUMN currency TEXT");
+ensureColumn("branches", "tax_rate", "ALTER TABLE branches ADD COLUMN tax_rate REAL");
+ensureColumn("branches", "timezone", "ALTER TABLE branches ADD COLUMN timezone TEXT");
+ensureColumn("branches", "country", "ALTER TABLE branches ADD COLUMN country TEXT");
+// Items with a NULL branch_id are shared across every branch; items with a
+// branch_id belong to that store's catalogue only.
+ensureColumn("items", "branch_id", "ALTER TABLE items ADD COLUMN branch_id INTEGER");
 ensureColumn("stock_adjustments", "username", "ALTER TABLE stock_adjustments ADD COLUMN username TEXT");
 ensureColumn("stock_adjustments", "timestamp", "ALTER TABLE stock_adjustments ADD COLUMN timestamp DATETIME DEFAULT CURRENT_TIMESTAMP");
 ensureColumn("customers", "created_at", "ALTER TABLE customers ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP");
@@ -208,6 +215,199 @@ const seedSettings = db.transaction(() => {
   }
 });
 seedSettings();
+
+// ---------------------------------------------------------------------------
+// Demo data: two companies in different tax jurisdictions
+//
+// Enabled with SEED_DEMO=1, or on demand via POST /api/admin/seed-demo.
+// Each branch carries its own currency symbol, tax rate and timezone, so a
+// user assigned to a branch sees that country's figures everywhere.
+// ---------------------------------------------------------------------------
+const DEMO_PASSWORD = process.env.DEMO_PASSWORD || "Demo@12345";
+
+type DemoBranch = {
+  key: string;
+  name: string;
+  country: string;
+  address: string;
+  contact: string;
+  vat_id: string;
+  currency: string;
+  tax_rate: number;
+  timezone: string;
+  users: Array<{ username: string; role: string }>;
+  items: Array<[string, number, number, number, string]>; // name, price, cost, stock, sku
+};
+
+const DEMO_BRANCHES: DemoBranch[] = [
+  {
+    key: "in",
+    name: "Saffron Retail LLP",
+    country: "India",
+    address: "14 Brigade Road, Bengaluru, Karnataka 560001",
+    contact: "+91 80 4123 8890",
+    vat_id: "29AAECS1234F1Z5",
+    currency: "₹",
+    tax_rate: 18, // GST
+    timezone: "Asia/Kolkata",
+    users: [
+      { username: "india_cashier", role: "cashier" },
+      { username: "india_kds", role: "kds" },
+    ],
+    items: [
+      ["Masala Chai 200ml", 45, 28, 240, "IN-BEV-001"],
+      ["Filter Coffee Powder 500g", 285, 190, 64, "IN-BEV-002"],
+      ["Aloo Paratha Frozen (4pc)", 95, 60, 130, "IN-FOD-001"],
+      ["Basmati Rice 5kg", 649, 520, 48, "IN-FOD-002"],
+      ["Tata Salt 1kg", 28, 20, 300, "IN-HOM-001"],
+      ["Turmeric Powder 200g", 62, 40, 96, "IN-HOM-002"],
+      ["Neem Soap Pack of 4", 140, 95, 72, "IN-PCA-001"],
+      ["Basmati Combo Cooker 1.8L", 1299, 1050, 12, "IN-ELC-001"],
+    ],
+  },
+  {
+    key: "ph",
+    name: "Manila Mini Mart",
+    country: "Philippines",
+    address: "221 SM North Avenue, Quezon City, 1100",
+    contact: "+63 2 8123 4567",
+    vat_id: "123-456-789-00001",
+    currency: "₱",
+    tax_rate: 12, // VAT
+    timezone: "Asia/Manila",
+    users: [
+      { username: "ph_cashier", role: "cashier" },
+      { username: "ph_callcenter", role: "callcenter" },
+      { username: "ph_kds", role: "kds" },
+    ],
+    items: [
+      ["Canned Sardines 150g", 32, 24, 260, "PH-CAN-001"],
+      ["Instant Gyoza 500g", 89, 62, 84, "PH-FRZ-001"],
+      ["Pancit Canton Box (6pc)", 118, 88, 96, "PH-FOD-001"],
+      ["Bottled Water 1L", 28, 20, 320, "PH-BEV-001"],
+      ["Calamansi Juice 1L", 105, 78, 40, "PH-BEV-002"],
+      ["All-Purpose Bleach 1L", 78, 58, 74, "PH-HOM-001"],
+      ["Dishwashing Liquid 250ml", 52, 38, 120, "PH-HOM-002"],
+      ["Jasmine Rice 5kg", 385, 320, 56, "PH-FOD-002"],
+      ["Canned Sardines Leche Flakes", 128, 95, 44, "PH-CAN-002"],
+    ],
+  },
+];
+
+const DEMO_CATEGORIES = ["Beverages", "Food", "Household", "Personal Care", "Electronics"];
+
+function seedDemoData(): { branches: number; items: number; users: number; sales: number } {
+  const result = { branches: 0, items: 0, users: 0, sales: 0 };
+  const insCategory = db.prepare("INSERT OR IGNORE INTO categories (name) VALUES (?)");
+  const selCategory = db.prepare("SELECT id FROM categories WHERE name = ?");
+  const insBranch = db.prepare(
+    "INSERT OR IGNORE INTO branches (name, address, contact, vat_id, currency, tax_rate, timezone, country) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+  );
+  const selBranch = db.prepare("SELECT * FROM branches WHERE name = ?");
+  const insUser = db.prepare("INSERT OR IGNORE INTO users (username, password_hash, role, branch_id) VALUES (?, ?, ?, ?)");
+  const insItem = db.prepare(
+    "INSERT OR IGNORE INTO items (name, price, cost_price, stock, sku, category_id, branch_id, low_stock_threshold) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+  );
+  const selItem = db.prepare("SELECT * FROM items WHERE sku = ?");
+  const insCustomer = db.prepare("INSERT INTO customers (name, phone, email, address) VALUES (?, ?, ?, ?)");
+  const selCustomer = db.prepare("SELECT * FROM customers WHERE phone = ?");
+  const insSale = db.prepare(
+    "INSERT INTO sales (subtotal, tax, total, discount, timestamp, payment_method, status, customer_id, branch_id, preparation_status) VALUES (?, ?, ?, ?, ?, ?, 'completed', ?, ?, 'ready')",
+  );
+  const insSaleItem = db.prepare(
+    "INSERT INTO sale_items (sale_id, item_id, quantity, price_at_sale, cost_price_at_sale) VALUES (?, ?, ?, ?, ?)",
+  );
+  const decStock = db.prepare("UPDATE items SET stock = MAX(0, stock - ?) WHERE id = ?");
+
+  const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+
+  db.transaction(() => {
+    DEMO_CATEGORIES.forEach((c) => insCategory.run(c));
+
+    for (const b of DEMO_BRANCHES) {
+      insBranch.run(b.name, b.address, b.contact, b.vat_id, b.currency, b.tax_rate, b.timezone, b.country);
+      const branch = selBranch.get(b.name) as any;
+      if (!branch) continue;
+      result.branches += 1;
+
+      // Staff for this branch.
+      for (const u of b.users) {
+        const before = db.prepare("SELECT COUNT(*) c FROM users WHERE username = ?").get(u.username) as any;
+        insUser.run(u.username, hashPassword(DEMO_PASSWORD), u.role, branch.id);
+        if (before.c === 0) result.users += 1;
+      }
+
+      // Catalogue, priced in this branch's currency.
+      const itemIds: any[] = [];
+      for (const [name, price, cost, stock, sku] of b.items) {
+        const existing = selItem.get(sku) as any;
+        if (existing) {
+          itemIds.push(existing);
+          continue;
+        }
+        const categoryName = sku.includes("BEV") ? "Beverages" : sku.includes("FOD") || sku.includes("FRZ") || sku.includes("CAN") ? "Food" : sku.includes("HOM") ? "Household" : sku.includes("PCA") ? "Personal Care" : "Electronics";
+        const cat = selCategory.get(categoryName) as any;
+        insItem.run(name, price, cost, stock, sku, cat?.id ?? null, branch.id, Math.max(5, Math.round(stock * 0.15)));
+        const created = selItem.get(sku) as any;
+        if (created) {
+          itemIds.push(created);
+          result.items += 1;
+        }
+      }
+
+      // A few customers.
+      const phones = [`+63 917 000 0001`, `+63 918 000 0002`, `+63 919 000 0003`];
+      const names = ["Maria Santos", "Jose Rivera", "Ana Dela Cruz"];
+      const customerIds: number[] = [];
+      names.forEach((n, i) => {
+        const found = selCustomer.get(phones[i]) as any;
+        if (found) {
+          customerIds.push(found.id);
+        } else {
+          const info = insCustomer.run(n, phones[i], `${n.split(" ")[0].toLowerCase()}@example.com`, b.address);
+          customerIds.push(Number(info.lastInsertRowid));
+        }
+      });
+
+      // 14 days of sales so the reports and dashboard have a trend.
+      const methods = ["cash", "card", "gcash"];
+      for (let day = 13; day >= 0; day--) {
+        const salesToday = 3 + Math.floor(Math.random() * 6);
+        for (let s = 0; s < salesToday; s++) {
+          const lines = 1 + Math.floor(Math.random() * 3);
+          let subtotal = 0;
+          const chosen: Array<{ id: number; qty: number; price: number; cost: number }> = [];
+          for (let l = 0; l < lines; l++) {
+            const it = pick(itemIds);
+            if (!it || chosen.some((c) => c.id === it.id)) continue;
+            const qty = 1 + Math.floor(Math.random() * 3);
+            chosen.push({ id: it.id, qty, price: it.price, cost: it.cost_price || 0 });
+            subtotal += it.price * qty;
+          }
+          if (!chosen.length) continue;
+          const discount = Math.random() < 0.25 ? round2(subtotal * 0.05) : 0;
+          const taxable = round2(subtotal - discount);
+          const tax = round2((taxable * b.tax_rate) / 100);
+          const total = round2(taxable + tax);
+          const when = new Date(Date.now() - day * 86400000);
+          when.setHours(8 + Math.floor(Math.random() * 12), Math.floor(Math.random() * 60), Math.floor(Math.random() * 60), 0);
+          const ts = `${when.toISOString().slice(0, 19).replace("T", " ")}`;
+          const info = insSale.run(round2(subtotal), tax, total, discount, ts, pick(methods), pick(customerIds), branch.id);
+          const saleId = Number(info.lastInsertRowid);
+          for (const c of chosen) {
+            insSaleItem.run(saleId, c.id, c.qty, c.price, c.cost);
+            decStock.run(c.qty, c.id);
+          }
+          result.sales += 1;
+        }
+      }
+    }
+  })();
+
+  return result;
+}
+
 
 // ---------------------------------------------------------------------------
 // Security helpers
@@ -577,6 +777,30 @@ app.post("/api/upload", requireAuth, uploadSingle("image"), (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// Demo data (on demand)
+// ---------------------------------------------------------------------------
+app.post("/api/admin/seed-demo", requireAuth, requireRole("admin"), (_req, res) => {
+  try {
+    const r = seedDemoData();
+    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('demo_seeded_at', ?)").run(new Date().toISOString());
+    logEdit("settings", 0, "CREATE", `Demo data seeded: ${r.items} items, ${r.sales} sales`, req.user!.username);
+    res.json({ success: true, ...r, staff_password: DEMO_PASSWORD });
+  } catch (err) {
+    res.status(500).json({ error: `Seeding failed: ${(err as Error).message}` });
+  }
+});
+
+app.get("/api/demo-info", requireAuth, requireRole("admin"), (_req, res) => {
+  res.json({
+    seeded_at: getSetting("demo_seeded_at") || null,
+    staff_password: DEMO_PASSWORD,
+    accounts: DEMO_BRANCHES.flatMap((b) =>
+      b.users.map((u) => ({ username: u.username, role: u.role, branch: b.name, country: b.country, currency: b.currency, tax_rate: b.tax_rate })),
+    ),
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Branches
 // ---------------------------------------------------------------------------
 app.get("/api/branches", requireAuth, (_req, res) => {
@@ -584,12 +808,14 @@ app.get("/api/branches", requireAuth, (_req, res) => {
 });
 
 app.post("/api/branches", requireAuth, requireRole("admin"), (req, res) => {
-  const { name, address, contact, vat_id } = req.body || {};
+  const { name, address, contact, vat_id, currency, tax_rate, timezone, country } = req.body || {};
   if (!name) return res.status(400).json({ error: "Name is required" });
   try {
-    const info = db.prepare("INSERT INTO branches (name, address, contact, vat_id) VALUES (?, ?, ?, ?)").run(name, address || null, contact || null, vat_id || null);
+    const info = db
+      .prepare("INSERT INTO branches (name, address, contact, vat_id, currency, tax_rate, timezone, country) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(name, address || null, contact || null, vat_id || null, currency || null, tax_rate != null && tax_rate !== "" ? Number(tax_rate) : null, timezone || null, country || null);
     logEdit("branches", Number(info.lastInsertRowid), "CREATE", `Branch ${name} added`, req.user!.username);
-    res.json({ id: Number(info.lastInsertRowid), name, address, contact, vat_id });
+    res.json(db.prepare("SELECT * FROM branches WHERE id = ?").get(Number(info.lastInsertRowid)));
   } catch {
     res.status(400).json({ error: "Branch already exists" });
   }
@@ -606,18 +832,29 @@ app.post("/api/branches/:id/logo", requireAuth, requireRole("admin"), uploadSing
 
 app.put("/api/branches/:id", requireAuth, requireRole("admin"), (req, res) => {
   const { id } = req.params;
-  const { name, address, contact, vat_id, logo_url } = req.body || {};
+  const { name, address, contact, vat_id, logo_url, currency, tax_rate, timezone, country } = req.body || {};
   if (!name) return res.status(400).json({ error: "Name is required" });
   const old = db.prepare("SELECT * FROM branches WHERE id = ?").get(id) as any;
   if (!old) return res.status(404).json({ error: "Branch not found" });
-  db.prepare("UPDATE branches SET name = ?, address = ?, contact = ?, vat_id = ?, logo_url = COALESCE(?, logo_url) WHERE id = ?").run(
-    name,
-    address || null,
-    contact || null,
-    vat_id || null,
-    logo_url || null,
-    id
-  );
+  db
+    .prepare(
+      `UPDATE branches SET name = ?, address = ?, contact = ?, vat_id = ?,
+       currency = COALESCE(?, currency), tax_rate = COALESCE(?, tax_rate),
+       timezone = COALESCE(?, timezone), country = COALESCE(?, country),
+       logo_url = COALESCE(?, logo_url) WHERE id = ?`,
+    )
+    .run(
+      name,
+      address || null,
+      contact || null,
+      vat_id || null,
+      currency || null,
+      tax_rate != null && tax_rate !== "" ? Number(tax_rate) : null,
+      timezone || null,
+      country || null,
+      logo_url || null,
+      id,
+    );
   logEdit("branches", Number(id), "UPDATE", `Branch ${name} updated`, req.user!.username);
   res.json({ success: true });
 });
@@ -658,24 +895,28 @@ app.delete("/api/categories/:id", requireAuth, requireRole("admin"), (req, res) 
 // ---------------------------------------------------------------------------
 // Items
 // ---------------------------------------------------------------------------
-app.get("/api/items", requireAuth, (_req, res) => {
+app.get("/api/items", requireAuth, (req, res) => {
+  // A branch user sees shared items plus their own store's catalogue.
+  const branchId = (req.user as any)?.branch_id ?? null;
   const items = db
-    .prepare(`SELECT items.*, categories.name as category_name FROM items LEFT JOIN categories ON items.category_id = categories.id ORDER BY items.name`)
-    .all();
+    .prepare(`SELECT items.*, categories.name as category_name FROM items LEFT JOIN categories ON items.category_id = categories.id
+      WHERE (? IS NULL OR items.branch_id IS NULL OR items.branch_id = ?) ORDER BY items.name`)
+    .all(branchId, branchId);
   res.json(items);
 });
 
 app.post("/api/items", requireAuth, requireRole("admin", "cashier"), (req, res) => {
-  const { name, price, cost_price, category_id, sku, stock, image_url, low_stock_threshold } = req.body || {};
+  const { name, price, cost_price, category_id, sku, stock, image_url, low_stock_threshold, branch_id } = req.body || {};
   const priceNum = Number(price);
   if (!name || !isFinite(priceNum) || priceNum < 0) return res.status(400).json({ error: "Invalid item data. Name and valid price are required." });
+  const ownerBranch = branch_id ?? (req.user as any)?.branch_id ?? null;
   try {
     const info = db
-      .prepare("INSERT INTO items (name, price, cost_price, category_id, sku, stock, image_url, low_stock_threshold) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-      .run(name, priceNum, Number(cost_price) || 0, category_id || null, sku || null, Number(stock) || 0, image_url || null, Number(low_stock_threshold) || 5);
+      .prepare("INSERT INTO items (name, price, cost_price, category_id, sku, stock, image_url, low_stock_threshold, branch_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(name, priceNum, Number(cost_price) || 0, category_id || null, sku || null, Number(stock) || 0, image_url || null, Number(low_stock_threshold) || 5, ownerBranch);
     const itemId = Number(info.lastInsertRowid);
     logEdit("items", itemId, "CREATE", `Item ${name} added`, req.user!.username);
-    res.json({ id: itemId, name, price: priceNum, cost_price: Number(cost_price) || 0, category_id, sku, stock, image_url, low_stock_threshold });
+    res.json({ id: itemId, name, price: priceNum, cost_price: Number(cost_price) || 0, category_id, sku, stock, image_url, low_stock_threshold, branch_id: ownerBranch });
   } catch {
     res.status(400).json({ error: "SKU must be unique or database error occurred" });
   }
@@ -1303,6 +1544,17 @@ if (isProd) {
 // ---------------------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------------------
+// Applied here, not next to the other seeders: seeding needs hashPassword and
+// getSetting, which are declared further down the file. Guarded by a marker
+// setting so restarting the container never duplicates the data.
+if ((process.env.SEED_DEMO || "0") === "1" && !getSetting("demo_seeded_at")) {
+  const r = seedDemoData();
+  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('demo_seeded_at', ?)").run(new Date().toISOString());
+  console.log(
+    `[modernerp] Demo data seeded: ${r.branches} branches, ${r.items} items, ${r.users} users, ${r.sales} sales (staff password: ${DEMO_PASSWORD})`,
+  );
+}
+
 let server: ReturnType<typeof app.listen> | null = null;
 if (isProd) {
   server = app.listen(PORT, "0.0.0.0", () => {

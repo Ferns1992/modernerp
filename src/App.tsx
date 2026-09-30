@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import Papa from 'papaparse';
@@ -41,7 +41,20 @@ import {
   FileText,
   FileSpreadsheet,
   TrendingUp,
-  AlertCircle
+  AlertCircle,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  Globe,
+  Zap,
+  Lock,
+  Check,
+  Building2,
+  Receipt,
+  Boxes,
+  Percent,
+  ShieldCheck,
+  Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Category, Item, CartItem, Sale, DayEndReport, PaymentMethod, Customer, InventoryReportData } from './types';
@@ -325,99 +338,103 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, currentUser, settings, isO
       </AnimatePresence>
 
       <div className={`
-        fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col h-screen no-print transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0
+        fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col h-screen no-print transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="px-5 py-5 divider flex items-center justify-between">
+          <div className="flex items-center gap-3 min-w-0">
             {settings.app_logo_url || settings.logo_url ? (
-              <img src={settings.app_logo_url || settings.logo_url} alt="Logo" className="w-10 h-10 object-contain rounded-xl shadow-lg shadow-indigo-200" referrerPolicy="no-referrer" />
+              <img src={settings.app_logo_url || settings.logo_url} alt="Logo" className="w-10 h-10 shrink-0 object-contain rounded-xl ring-1 ring-slate-200 dark:ring-slate-700 bg-white" referrerPolicy="no-referrer" />
             ) : (
-              <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
-                <LayoutDashboard size={24} />
-              </div>
+              <img src={APP_ICON} alt="" className="w-10 h-10 shrink-0 object-contain rounded-xl ring-1 ring-slate-200 dark:ring-slate-700 bg-white" />
             )}
-            <div>
-              <h1 className="font-bold text-slate-900 dark:text-white tracking-tight truncate max-w-[120px]">{settings.company_name || 'Modern POS'}</h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Store Management</p>
+            <div className="min-w-0">
+              <h1 className="font-bold text-sm text-slate-900 dark:text-white tracking-tight truncate">{settings.company_name || 'Modern POS'}</h1>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">
+                {currentUser?.role === 'kds' ? 'Kitchen Display' : 'Store Management'}
+              </p>
             </div>
           </div>
-          <button onClick={() => setIsOpen(false)} className="lg:hidden text-slate-400 hover:text-slate-600">
-            <X size={20} />
+          <button onClick={() => setIsOpen(false)} className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:text-white dark:hover:bg-slate-800 transition-colors">
+            <X size={18} />
           </button>
         </div>
 
-        <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => {
-                setActiveTab(item.id);
-                if (item.id === 'pending_orders' || item.id === 'kds') {
-                  setNewOrdersCount(0);
-                }
-                if (window.innerWidth < 1024) setIsOpen(false);
-              }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-                activeTab === item.id 
-                  ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 font-semibold' 
-                  : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <item.icon size={20} />
-              <span className="flex-1 text-left">{item.label}</span>
-              {(item.id === 'pending_orders' || item.id === 'kds') && newOrdersCount !== undefined && newOrdersCount > 0 && (
-                <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
-                  {newOrdersCount}
-                </span>
-              )}
-            </button>
-          ))}
-        </nav>
-
-        <div className="p-4 border-t border-slate-100 dark:border-slate-700 space-y-4">
-          <div className="flex items-center justify-between px-4">
-            <div className="flex items-center gap-2">
-              {isOnline ? (
-                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
-                  <Wifi size={16} />
-                  <span className="text-[10px] font-bold uppercase tracking-wider">Online</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
-                  <WifiOff size={16} />
-                  <span className="text-[10px] font-bold uppercase tracking-wider">Offline</span>
-                </div>
-              )}
-            </div>
-            {pendingSalesCount > 0 && (
-              <button 
-                onClick={() => isOnline && !isSyncing && syncPendingSales()}
-                disabled={!isOnline || isSyncing}
-                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all ${
-                  isOnline 
-                    ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100' 
-                    : 'bg-slate-100 dark:bg-slate-700 text-slate-400 cursor-not-allowed'
+        <nav className="flex-1 px-3 py-5 space-y-1 overflow-y-auto">
+          <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">Menu</p>
+          {menuItems.map((item) => {
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setActiveTab(item.id);
+                  if (item.id === 'pending_orders' || item.id === 'kds') {
+                    setNewOrdersCount(0);
+                  }
+                  if (window.innerWidth < 1024) setIsOpen(false);
+                }}
+                aria-current={isActive ? 'page' : undefined}
+                className={`group relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
+                  isActive
+                    ? 'bg-indigo-50 text-indigo-700 font-semibold dark:bg-indigo-500/10 dark:text-indigo-300'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'
                 }`}
               >
-                {isSyncing ? (
-                  <RefreshCw size={12} className="animate-spin" />
-                ) : (
-                  <div className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
+                {isActive && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r-full bg-indigo-600 dark:bg-indigo-400" />
                 )}
-                <span className="text-[10px] font-bold">{pendingSalesCount} Pending</span>
+                <item.icon size={18} className={isActive ? '' : 'opacity-70 group-hover:opacity-100 transition-opacity'} />
+                <span className="flex-1 text-left">{item.label}</span>
+                {(item.id === 'pending_orders' || item.id === 'kds') && newOrdersCount !== undefined && newOrdersCount > 0 && (
+                  <span className="badge-danger !px-2 !py-0.5 text-[10px]">
+                    {newOrdersCount}
+                  </span>
+                )}
               </button>
-            )}
+            );
+          })}
+        </nav>
+
+        <div className="p-3 space-y-3">
+          <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              {isOnline ? (
+                <span className="badge-success">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Online
+                </span>
+              ) : (
+                <span className="badge bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Offline
+                </span>
+              )}
+              {pendingSalesCount > 0 && (
+                <button
+                  onClick={() => isOnline && !isSyncing && syncPendingSales()}
+                  disabled={!isOnline || isSyncing}
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                    isOnline
+                      ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-500/15 dark:text-indigo-300'
+                      : 'bg-slate-200 text-slate-400 cursor-not-allowed dark:bg-slate-700'
+                  }`}
+                >
+                  {isSyncing ? <RefreshCw size={11} className="animate-spin" /> : <Zap size={11} />}
+                  {pendingSalesCount} pending
+                </button>
+              )}
+            </div>
           </div>
-          
-          <ThemeToggle />
-          <button 
-            onClick={onLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-red-50 hover:text-red-600 transition-all"
-          >
-            <LogOut size={20} />
-            Logout
-          </button>
+
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <button
+              onClick={onLogout}
+              className="btn btn-secondary flex-1 justify-center gap-2 !py-2 text-sm"
+            >
+              <LogOut size={15} />
+              Logout
+            </button>
+          </div>
         </div>
       </div>
     </>
@@ -2516,26 +2533,50 @@ const CustomersSection = ({ currentUser, settings }: { currentUser: any, setting
 };
 
 // --- Login Component ---
+const APP_ICON = '/icon-512.png';
+
+const TAB_LABELS: Record<string, string> = {
+  dashboard: 'Dashboard',
+  pos: 'Checkout',
+  inventory: 'Inventory',
+  inventory_report: 'Inventory Report',
+  customers: 'Customers',
+  reports: 'Reports',
+  pending_orders: 'Pending Orders',
+  kds: 'Kitchen Display',
+  admin: 'Admin & Settings',
+  logs: 'Audit Logs',
+};
+
+const menuLabel = (tab: string) => TAB_LABELS[tab] || 'Dashboard';
+
 const Login = ({ onLogin, settings }: { onLogin: (user: any) => void, settings: Settings }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const logo = settings.app_logo_url || settings.logo_url;
+  const company = settings.company_name || 'Modern ERP';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (!username.trim() || !password) {
+      setError('Enter both your username and password');
+      return;
+    }
     setLoading(true);
 
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username: username.trim(), password }),
       });
-      
-      const data = await res.json();
-      
+
+      const data = await res.json().catch(() => ({}));
+
       if (res.ok) {
         onLogin(data);
       } else {
@@ -2548,70 +2589,190 @@ const Login = ({ onLogin, settings }: { onLogin: (user: any) => void, settings: 
     }
   };
 
+  const features = [
+    { icon: Receipt, label: 'Point of sale & receipts' },
+    { icon: Boxes, label: 'Live inventory control' },
+    { icon: TrendingUp, label: 'Sales & tax reporting' },
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white dark:bg-slate-800 rounded-2xl shadow-xl dark:shadow-none overflow-hidden">
-        <div className="bg-indigo-600 p-8 text-center">
-          {settings.app_logo_url || settings.logo_url ? (
-            <img src={settings.app_logo_url || settings.logo_url} alt="Logo" className="w-16 h-16 mx-auto mb-4 object-contain rounded-2xl bg-white p-1 shadow-lg shadow-indigo-200" referrerPolicy="no-referrer" />
-          ) : (
-            <div className="w-16 h-16 bg-white dark:bg-slate-800/20 rounded-2xl flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
-              <LayoutDashboard size={32} className="text-white" />
-            </div>
-          )}
-          <h1 className="text-2xl font-bold text-white mb-2">{settings.company_name || 'Modern POS'}</h1>
-          <p className="text-indigo-100">Store Management System</p>
+    <div className="min-h-screen lg:grid lg:grid-cols-[1.05fr_1fr]">
+      {/* Brand panel — hidden on small screens */}
+      <div className="relative hidden lg:flex flex-col justify-between p-12 overflow-hidden bg-slate-900 text-white dark:bg-slate-950">
+        <div className="aurora" aria-hidden="true">
+          <span /><span /><span />
         </div>
-        
-        <div className="p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
-                Username
-              </label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
-                placeholder="Enter username"
-                autoFocus
-              />
-            </div>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
-                Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
-                placeholder="Enter password"
-              />
-            </div>
-            
-            {error && (
-              <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-red-600" />
-                {error}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 active:scale-[0.98] transition-all shadow-lg shadow-indigo-200 disabled:opacity-50"
-            >
-              {loading ? 'Processing...' : 'Access System'}
-            </button>
-          </form>
-          
-          <div className="mt-6 text-center text-xs text-slate-400 dark:text-slate-500">
-            Protected System • Authorized Personnel Only
+        <div className="relative flex items-center gap-3">
+          <img
+            src={logo || APP_ICON}
+            alt=""
+            className="w-11 h-11 rounded-xl object-contain bg-white/95 p-1 shadow-lg shadow-black/30"
+            referrerPolicy="no-referrer"
+          />
+          <div>
+            <p className="font-bold tracking-tight leading-tight">{company}</p>
+            <p className="text-xs text-indigo-200/80 font-medium">Enterprise Resource Planning</p>
           </div>
         </div>
+
+        <div className="relative max-w-md">
+          <span className="badge bg-white/10 text-indigo-100 ring-1 ring-white/15 mb-6">
+            <Sparkles size={12} />
+            Multi-branch retail platform
+          </span>
+          <h2 className="text-4xl xl:text-5xl font-black tracking-tight leading-[1.1]">
+            <span className="brand-text">Run every store</span>
+            <br />
+            from one screen.
+          </h2>
+          <p className="mt-5 text-slate-300 leading-relaxed">
+            Checkout, stock, kitchen display and statutory reporting — with per-branch
+            currency and tax built in.
+          </p>
+
+          <ul className="mt-8 space-y-3">
+            {features.map(({ icon: Icon, label }) => (
+              <li key={label} className="flex items-center gap-3 text-sm text-slate-200">
+                <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/10 ring-1 ring-white/10 text-indigo-200">
+                  <Icon size={16} />
+                </span>
+                {label}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="relative flex items-center gap-6 text-xs text-slate-400">
+          <span className="flex items-center gap-2">
+            <Globe size={13} /> Multi-region
+          </span>
+          <span className="flex items-center gap-2">
+            <ShieldCheck size={13} /> Role-based access
+          </span>
+        </div>
+      </div>
+
+      {/* Form panel */}
+      <div className="relative flex items-center justify-center p-5 sm:p-8 bg-slate-50 dark:bg-slate-950">
+        <div className="aurora lg:hidden" aria-hidden="true">
+          <span /><span />
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 16, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.35, ease: 'easeOut' }}
+          className="relative w-full max-w-md"
+        >
+          {/* Mobile brand */}
+          <div className="lg:hidden flex flex-col items-center text-center mb-8">
+            <img
+              src={logo || APP_ICON}
+              alt=""
+              className="w-14 h-14 rounded-2xl object-contain bg-white dark:bg-slate-900 p-1.5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-800"
+              referrerPolicy="no-referrer"
+            />
+            <h1 className="mt-3 text-xl font-black tracking-tight text-slate-900 dark:text-white">{company}</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Sign in to continue</p>
+          </div>
+
+          <div className="card card-pad">
+            <div className="mb-6">
+              <span className="badge-brand mb-4">
+                <Lock size={11} /> Secure sign in
+              </span>
+              <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">Welcome back</h2>
+              <p className="page-subtitle mt-1">Enter your credentials to access the system.</p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+              <div>
+                <label className="label" htmlFor="login-username">Username</label>
+                <div className="relative">
+                  <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input
+                    id="login-username"
+                    type="text"
+                    value={username}
+                    onChange={(e) => { setUsername(e.target.value); if (error) setError(''); }}
+                    className="input pl-10"
+                    placeholder="e.g. admin"
+                    autoComplete="username"
+                    autoFocus
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="label" htmlFor="login-password">Password</label>
+                <div className="relative">
+                  <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input
+                    id="login-password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => { setPassword(e.target.value); if (error) setError(''); }}
+                    className="input pl-10 pr-11"
+                    placeholder="••••••••"
+                    autoComplete="current-password"
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((s) => !s)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  role="alert"
+                  className="flex items-start gap-2.5 p-3 rounded-xl bg-red-50 text-red-700 text-sm ring-1 ring-red-100 dark:bg-red-500/10 dark:text-red-300 dark:ring-red-500/20"
+                >
+                  <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                  <span>{error}</span>
+                </motion.div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn btn-primary w-full py-3 text-base font-bold gap-2"
+              >
+                {loading ? (
+                  <>
+                    <RefreshCw size={16} className="animate-spin" />
+                    Signing in…
+                  </>
+                ) : (
+                  <>
+                    Access System
+                    <ArrowRight size={16} />
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="divider mt-6 pt-4 flex items-center justify-between text-xs text-slate-400 dark:text-slate-500">
+              <span>Authorized personnel only</span>
+              <span className="font-semibold">v2.0</span>
+            </div>
+          </div>
+
+          <p className="mt-6 text-center text-xs text-slate-400 dark:text-slate-500 flex items-center justify-center gap-1.5">
+            <Check size={12} className="text-emerald-500" />
+            Sessions are encrypted and expire automatically
+          </p>
+        </motion.div>
       </div>
     </div>
   );
@@ -2672,7 +2833,7 @@ export default function App() {
 
   const [isPrinting, setIsPrinting] = useState(false);
 
-  const [settings, setSettings] = useState<Settings>({
+  const [rawSettings, setRawSettings] = useState<Settings>({
     company_name: 'MODERN STORE',
     tax_rate: '12',
     address: '123 Main St, City',
@@ -2686,6 +2847,30 @@ export default function App() {
     thermal_font_style: 'normal',
     thermal_print_density: 3,
   });
+
+  // Every screen reads currency, tax and company details from `settings`. A
+  // user assigned to a branch must see *that branch's* currency symbol and tax
+  // rate, so scope the global settings through the user's branch. Shadowing the
+  // name means no call site needs to change; the setter stays global.
+  const currentBranch = useMemo(
+    () => (currentUser?.branch_id ? branches.find((b) => b.id === currentUser.branch_id) || null : null),
+    [branches, currentUser],
+  );
+  const settings = useMemo<Settings>(() => {
+    if (!currentBranch) return rawSettings;
+    return {
+      ...rawSettings,
+      company_name: currentBranch.name || rawSettings.company_name,
+      address: currentBranch.address || rawSettings.address,
+      contact: currentBranch.contact || rawSettings.contact,
+      vat_id: currentBranch.vat_id || rawSettings.vat_id,
+      currency: currentBranch.currency || rawSettings.currency,
+      tax_rate: currentBranch.tax_rate != null && currentBranch.tax_rate !== ''
+        ? String(currentBranch.tax_rate)
+        : rawSettings.tax_rate,
+      timezone: currentBranch.timezone || rawSettings.timezone,
+    };
+  }, [rawSettings, currentBranch]);
 
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
 
@@ -3002,7 +3187,7 @@ export default function App() {
       const res = await fetch('/api/settings');
       if (res.ok) {
         const data = await res.json();
-        setSettings(prev => ({ ...prev, ...data }));
+        setRawSettings(prev => ({ ...prev, ...data }));
       }
     } catch (err) {
       console.error("Failed to fetch settings:", err);
@@ -3738,29 +3923,63 @@ export default function App() {
 
         <main className="flex-1 overflow-auto relative flex flex-col">
           {/* Mobile Header */}
-          <div className="lg:hidden p-4 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between sticky top-0 z-30">
-            <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-slate-600 dark:text-slate-300">
-              <Menu size={24} />
+          <div className="appbar lg:hidden">
+            <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" aria-label="Open menu">
+              <Menu size={22} />
             </button>
-            <h1 className="font-bold text-slate-900 dark:text-white truncate px-4">{settings.company_name || 'Modern POS'}</h1>
-            <div className="flex items-center gap-3">
+            <h1 className="flex-1 font-bold text-sm text-slate-900 dark:text-white truncate">{settings.company_name || 'Modern POS'}</h1>
+            <div className="flex items-center gap-2">
               <div className="flex items-center gap-1.5">
                 {isSyncing && <RefreshCw size={12} className="animate-spin text-indigo-600" />}
                 <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
               </div>
               {activeTab === 'pos' && (
-                <button 
+                <button
                   onClick={() => setShowMobileCart(!showMobileCart)}
-                  className="relative p-2 text-indigo-600"
+                  className="relative p-2 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                  aria-label="Toggle cart"
                 >
-                  <ShoppingCart size={24} />
+                  <ShoppingCart size={20} />
                   {cart.length > 0 && (
-                    <span className="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-white dark:border-slate-800">
+                    <span className="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-white dark:border-slate-900">
                       {cart.reduce((acc, item) => acc + item.quantity, 0)}
                     </span>
                   )}
                 </button>
               )}
+            </div>
+          </div>
+
+          {/* Desktop app bar */}
+          <div className="appbar hidden lg:flex">
+            <div className="min-w-0">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight truncate">
+                {menuLabel(activeTab)}
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                {currentUser?.username} · {currentUser?.role}
+                {currentBranch ? ` · ${currentBranch.name}` : ''}
+              </p>
+            </div>
+
+            <div className="ml-auto flex items-center gap-2">
+              {currentBranch && (
+                <span className="badge-neutral" title={currentBranch.address || ''}>
+                  <Building2 size={11} />
+                  <span className="max-w-[10rem] truncate">{currentBranch.name}</span>
+                </span>
+              )}
+              <span className="badge-neutral tabular-nums">
+                <span className="font-semibold">{settings.currency}</span>
+                <span className="text-slate-400">·</span>
+                {settings.tax_rate}%
+                <Percent size={10} />
+              </span>
+              <span className="badge-neutral tabular-nums">
+                {new Date().toLocaleDateString(undefined, { month: 'short', day: '2-digit' })}
+                <span className="text-slate-400">·</span>
+                {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
             </div>
           </div>
 
@@ -3771,7 +3990,7 @@ export default function App() {
           {activeTab === 'admin' && currentUser?.role === 'admin' && (
              <div className="p-4 lg:p-8 space-y-8">
                <AdminPanel onUpdatePaymentMethods={fetchPaymentMethods} currentUser={currentUser} />
-               <SettingsPanel settings={settings} onUpdate={setSettings} currentUser={currentUser} />
+               <SettingsPanel settings={rawSettings} onUpdate={setRawSettings} currentUser={currentUser} />
              </div>
           )}
           {activeTab === 'logs' && currentUser?.role === 'admin' && (
