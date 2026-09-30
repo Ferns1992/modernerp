@@ -8,6 +8,10 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
+@utility badge {
+  @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold;
+}
+
 @layer base {
   /* `hidden` is only honoured through the UA rule, which any author `display`
      declaration outranks. Without this, a hidden element that sets `display`
@@ -90,9 +94,6 @@
   }
   .label {
     @apply block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2;
-  }
-  .badge {
-    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold;
   }
   .badge-neutral {
     @apply badge bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300;
