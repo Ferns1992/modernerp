@@ -39,7 +39,12 @@ db.exec(`
     name TEXT NOT NULL UNIQUE,
     address TEXT,
     contact TEXT,
-    vat_id TEXT
+    vat_id TEXT,
+    logo_url TEXT,
+    currency TEXT,
+    tax_rate REAL,
+    timezone TEXT,
+    country TEXT
   );
 
   CREATE TABLE IF NOT EXISTS users (
@@ -167,6 +172,7 @@ ensureColumn("sales", "completed_at_branch_id", "ALTER TABLE sales ADD COLUMN co
 ensureColumn("users", "branch_id", "ALTER TABLE users ADD COLUMN branch_id INTEGER");
 ensureColumn("users", "created_at", "ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP");
 ensureColumn("branches", "vat_id", "ALTER TABLE branches ADD COLUMN vat_id TEXT");
+ensureColumn("branches", "logo_url", "ALTER TABLE branches ADD COLUMN logo_url TEXT");
 ensureColumn("branches", "currency", "ALTER TABLE branches ADD COLUMN currency TEXT");
 ensureColumn("branches", "tax_rate", "ALTER TABLE branches ADD COLUMN tax_rate REAL");
 ensureColumn("branches", "timezone", "ALTER TABLE branches ADD COLUMN timezone TEXT");
