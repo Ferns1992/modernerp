@@ -17,7 +17,7 @@ ENV NODE_ENV=production PORT=4000
 WORKDIR /app
 
 RUN groupadd --gid 10001 app && useradd --uid 10001 --gid app --home /app app && \
-    mkdir -p /app/data /app/dist-server && chown -R app:app /app
+    mkdir -p /app/data /app/dist-server /data && chown -R app:app /app /data
 
 COPY --from=builder --chown=app:app /app/node_modules ./node_modules
 COPY --from=builder --chown=app:app /app/dist ./dist
