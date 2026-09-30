@@ -1,0 +1,13 @@
+[Unit]
+Description=ModernERP database backup (local + R2 mirror)
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/modernerp-backup.sh
+# A stuck backup must not overlap the next one.
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target

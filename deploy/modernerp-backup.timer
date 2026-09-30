@@ -1,0 +1,10 @@
+[Unit]
+Description=Nightly ModernERP backup to local disk and R2
+
+[Timer]
+OnCalendar=*-*-* 04:23:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
