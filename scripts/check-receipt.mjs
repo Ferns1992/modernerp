@@ -4,11 +4,13 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import React from 'react';
 import { build } from 'esbuild';
-import { writeFileSync, mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const dir = mkdtempSync(join(tmpdir(), 'receipt-'));
+// Build inside the project so Node still resolves react/react-dom from
+// node_modules; a temp dir outside it cannot see the dependencies.
+const dir = join(process.cwd(), 'node_modules', '.cache', 'receipt-check');
+mkdirSync(dir, { recursive: true });
 const outfile = join(dir, 'receipt.mjs');
 
 await build({
@@ -19,7 +21,8 @@ await build({
   jsx: 'automatic',
   outfile,
   logLevel: 'error',
-  external: ['react', 'react-dom', 'react-dom/server', 'react/jsx-runtime'],
+  // React is bundled in so the output has no external imports to resolve.
+  absWorkingDir: process.cwd(),
 });
 writeFileSync(join(dir, 'package.json'), JSON.stringify({ type: 'module' }));
 
