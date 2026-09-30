@@ -779,7 +779,7 @@ app.post("/api/upload", requireAuth, uploadSingle("image"), (req, res) => {
 // ---------------------------------------------------------------------------
 // Demo data (on demand)
 // ---------------------------------------------------------------------------
-app.post("/api/admin/seed-demo", requireAuth, requireRole("admin"), (_req, res) => {
+app.post("/api/admin/seed-demo", requireAuth, requireRole("admin"), (req, res) => {
   try {
     const r = seedDemoData();
     db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('demo_seeded_at', ?)").run(new Date().toISOString());

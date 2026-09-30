@@ -50,7 +50,7 @@ import {
   Lock,
   Check,
   Building2,
-  Receipt,
+  Receipt as ReceiptIcon,
   Boxes,
   Percent,
   ShieldCheck,
@@ -1334,8 +1334,14 @@ const SettingsPanel = ({ settings, onUpdate, currentUser }: { settings: Settings
 };
 
 // --- KDS Panel Component ---
+/** A kitchen order: the `status` field carries the preparation state, not the
+ *  sale state, so it needs a wider union than Sale.status. */
+type KitchenOrder = Omit<Sale, 'status'> & {
+  status?: 'pending' | 'preparing' | 'ready' | 'delivered' | 'completed';
+};
+
 const KDSPanel = ({ orders, onUpdateStatus, currentUser, isSoundEnabled, setIsSoundEnabled, onTestSound, onRefresh }: { 
-  orders: Sale[], 
+  orders: KitchenOrder[], 
   onUpdateStatus: (id: number, status: string) => void, 
   currentUser: any,
   isSoundEnabled: boolean,
@@ -1640,7 +1646,6 @@ const AdminPanel = ({ onUpdatePaymentMethods, currentUser }: { onUpdatePaymentMe
         setNewBranchContact('');
         setNewBranchVatId('');
         setNewBranchTaxRate('');
-        setNewBranchLogoUrl('');
         fetchBranches();
       } else {
         const data = await res.json();
@@ -2590,7 +2595,7 @@ const Login = ({ onLogin, settings }: { onLogin: (user: any) => void, settings: 
   };
 
   const features = [
-    { icon: Receipt, label: 'Point of sale & receipts' },
+    { icon: ReceiptIcon, label: 'Point of sale & receipts' },
     { icon: Boxes, label: 'Live inventory control' },
     { icon: TrendingUp, label: 'Sales & tax reporting' },
   ];
