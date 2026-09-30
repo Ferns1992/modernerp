@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160" role="img" aria-label="Basmati Rice 5kg">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#B45309"/>
+    </linearGradient>
+  </defs>
+  <rect width="160" height="160" fill="url(#g)"/>
+  <circle cx="130" cy="26" r="44" fill="#fff" fill-opacity=".08"/>
+  <path d="M44 48h72l-6 44a10 10 0 0 1-10 8H60a10 10 0 0 1-10-8z" fill="#fff" fill-opacity=".92"/><path d="M66 56V44a14 14 0 0 1 28 0v12" fill="none" stroke="#fff" stroke-opacity=".92" stroke-width="7" stroke-linecap="round"/><rect x="64" y="66" width="32" height="8" rx="4" fill="#000" fill-opacity=".18"/>
+  <rect x="10" y="112" width="140" height="40" rx="8" fill="#000" fill-opacity=".26"/>
+  <text x="80" y="129" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#fff">Basmati Rice 5kg</text>
+  <text x="80" y="145" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#fff"></text>
+</svg>

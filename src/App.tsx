@@ -889,17 +889,50 @@ const InventoryReport = ({ data, settings, categories }: { data: InventoryReport
 };
 
 // --- Dashboard Component ---
-const Dashboard = ({ settings, onQuickAdd }: { settings: Settings, onQuickAdd: () => void }) => {
+const CompanySwitcher = ({ branches, activeBranchId, onChange, currency, taxRate, compact = false }: {
+  branches: any[];
+  activeBranchId: number | null;
+  onChange: (id: number | null) => void;
+  currency: string;
+  taxRate: string;
+  compact?: boolean;
+}) => (
+  <div className={`flex items-center gap-2 ${compact ? '' : 'pl-3 ml-1 border-l border-slate-200 dark:border-slate-700'}`}>
+    <Building2 size={14} className="text-slate-400 shrink-0" />
+    <select
+      value={activeBranchId ?? ''}
+      onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
+      className="input !w-auto !py-1 !px-2 !text-xs font-semibold max-w-[11rem]"
+      title="Switch company (admin)"
+      aria-label="Active company"
+    >
+      <option value="">All companies</option>
+      {branches.map((b) => (
+        <option key={b.id} value={b.id}>
+          {b.name} ({b.currency || '₱'} · {b.tax_rate ?? 0}%)
+        </option>
+      ))}
+    </select>
+    <span className="badge-neutral tabular-nums shrink-0" title="Currency and tax of the company in view">
+      <span className="font-semibold">{currency}</span>
+      <span className="text-slate-400">·</span>
+      {taxRate}%
+      <Percent size={10} />
+    </span>
+  </div>
+);
+
+const Dashboard = ({ settings, onQuickAdd, branchQuery = '' }: { settings: Settings, onQuickAdd: () => void; branchQuery?: string }) => {
   const [data, setData] = useState<{ today_revenue: number; today_transactions: number; low_stock_count: number; out_of_stock_count: number } | null>(null);
   const [recent, setRecent] = useState<Sale[]>([]);
   const currency = settings.currency || '₱';
 
   const load = async () => {
     try {
-      const res = await fetch('/api/dashboard');
+      const res = await fetch(`/api/dashboard${branchQuery}`);
       if (res.ok) setData(await res.json());
       const date = new Date().toISOString().split('T')[0];
-      const sres = await fetch(`/api/reports/sales?type=day&date=${date}`);
+      const sres = await fetch(`/api/reports/sales?type=day&date=${date}${branchQuery}`);
       if (sres.ok) {
         const sales = await sres.json();
         setRecent(Array.isArray(sales) ? sales.slice(0, 8) : []);
@@ -909,8 +942,8 @@ const Dashboard = ({ settings, onQuickAdd }: { settings: Settings, onQuickAdd: (
     }
   };
 
-  useEffect(() => { load(); }, []);
-  useEffect(() => { const id = setInterval(load, 60000); return () => clearInterval(id); }, []);
+  useEffect(() => { load(); }, [branchQuery]);
+  useEffect(() => { const id = setInterval(load, 60000); return () => clearInterval(id); }, [branchQuery]);
 
   const cards = [
     { label: "Today's Revenue", value: data ? `${currency}${data.today_revenue.toFixed(2)}` : '—', icon: TrendingUp, color: 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
@@ -2884,6 +2917,8 @@ export default function App() {
   const [reportType, setReportType] = useState<'day' | 'month' | 'year'>('day');
   const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
   const [reportBranchId, setReportBranchId] = useState<number | ''>('');
+  // Keep the report filter in step with the company chosen in the app bar.
+  useEffect(() => { if (isAdmin) setReportBranchId(activeBranchId ?? ''); }, [activeBranchId, isAdmin]);
 
   const [isPrinting, setIsPrinting] = useState(false);
 
@@ -2902,14 +2937,34 @@ export default function App() {
     thermal_print_density: 3,
   });
 
+  // Which company is being viewed. A staff user is pinned to their own branch;
+  // an admin can flip between companies (or see all of them at once) to check
+  // each store's data in its own currency.
+  const [activeBranchId, setActiveBranchId] = useState<number | null>(() => {
+    const saved = localStorage.getItem('merp_active_branch');
+    return saved ? Number(saved) : null;
+  });
+  const isAdmin = currentUser?.role === 'admin';
+  const effectiveBranchId = isAdmin ? activeBranchId : currentUser?.branch_id ?? null;
+  const activeBranch = useMemo(
+    () => (effectiveBranchId ? branches.find((b) => b.id === effectiveBranchId) || null : null),
+    [branches, effectiveBranchId],
+  );
+  const selectBranch = (id: number | null) => {
+    setActiveBranchId(id);
+    if (id) localStorage.setItem('merp_active_branch', String(id));
+    else localStorage.removeItem('merp_active_branch');
+  };
+  // Appended to endpoints that already carry a query string; empty when the
+  // admin is looking at every company at once.
+  const branchQuery = effectiveBranchId ? `&branch_id=${effectiveBranchId}` : '';
+  const branchQueryLead = effectiveBranchId ? `?branch_id=${effectiveBranchId}` : '';
+
   // Every screen reads currency, tax and company details from `settings`. A
   // user assigned to a branch must see *that branch's* currency symbol and tax
-  // rate, so scope the global settings through the user's branch. Shadowing the
-  // name means no call site needs to change; the setter stays global.
-  const currentBranch = useMemo(
-    () => (currentUser?.branch_id ? branches.find((b) => b.id === currentUser.branch_id) || null : null),
-    [branches, currentUser],
-  );
+  // rate, so scope the global settings through the branch in view. Shadowing
+  // the name means no call site needs to change; the setter stays global.
+  const currentBranch = activeBranch;
   const settings = useMemo<Settings>(() => {
     if (!currentBranch) return rawSettings;
     return {
@@ -3134,7 +3189,7 @@ export default function App() {
 
   const fetchInventoryReport = async () => {
     try {
-      const res = await fetch('/api/reports/inventory');
+      const res = await fetch(`/api/reports/inventory${branchQuery}`);
       if (res.ok) {
         const data = await res.json();
         setInventoryReportData(data);
@@ -3294,10 +3349,11 @@ export default function App() {
   }, []);
 
   const fetchItems = async () => {
-    const res = await fetch('/api/items');
+    const res = await fetch(`/api/items${branchQueryLead}`);
     const data = await res.json();
     setItems(data);
   };
+  useEffect(() => { fetchItems(); }, [branchQueryLead]);
 
   const fetchCategories = async () => {
     const res = await fetch('/api/categories');
@@ -3982,6 +4038,16 @@ export default function App() {
               <Menu size={22} />
             </button>
             <h1 className="flex-1 font-bold text-sm text-slate-900 dark:text-white truncate">{settings.company_name || 'Modern POS'}</h1>
+            {isAdmin && (
+              <CompanySwitcher
+                branches={branches}
+                activeBranchId={activeBranchId}
+                onChange={selectBranch}
+                currency={settings.currency}
+                taxRate={settings.tax_rate}
+                compact
+              />
+            )}
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1.5">
                 {isSyncing && <RefreshCw size={12} className="animate-spin text-indigo-600" />}
@@ -4017,18 +4083,22 @@ export default function App() {
             </div>
 
             <div className="ml-auto flex items-center gap-2">
-              {currentBranch && (
-                <span className="badge-neutral" title={currentBranch.address || ''}>
-                  <Building2 size={11} />
-                  <span className="max-w-[10rem] truncate">{currentBranch.name}</span>
-                </span>
+              {isAdmin ? (
+                <CompanySwitcher
+                  branches={branches}
+                  activeBranchId={activeBranchId}
+                  onChange={selectBranch}
+                  currency={settings.currency}
+                  taxRate={settings.tax_rate}
+                />
+              ) : (
+                currentBranch && (
+                  <span className="badge-neutral" title={currentBranch.address || ''}>
+                    <Building2 size={11} />
+                    <span className="max-w-[10rem] truncate">{currentBranch.name}</span>
+                  </span>
+                )
               )}
-              <span className="badge-neutral tabular-nums">
-                <span className="font-semibold">{settings.currency}</span>
-                <span className="text-slate-400">·</span>
-                {settings.tax_rate}%
-                <Percent size={10} />
-              </span>
               <span className="badge-neutral tabular-nums">
                 {new Date().toLocaleDateString(undefined, { month: 'short', day: '2-digit' })}
                 <span className="text-slate-400">·</span>
@@ -4039,7 +4109,7 @@ export default function App() {
 
           <AnimatePresence mode="wait">
           {activeTab === 'dashboard' && (
-            <Dashboard settings={settings} onQuickAdd={() => setActiveTab('inventory')} />
+            <Dashboard settings={settings} onQuickAdd={() => setActiveTab('inventory')} branchQuery={branchQuery} />
           )}
           {activeTab === 'admin' && currentUser?.role === 'admin' && (
              <div className="p-4 lg:p-8 space-y-8">

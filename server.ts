@@ -317,13 +317,14 @@ function seedDemoData(): { branches: number; items: number; users: number; sales
   const insBranch = db.prepare(
     "INSERT OR IGNORE INTO branches (name, address, contact, vat_id, currency, tax_rate, timezone, country, logo_url, receipt_logo_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
   );
+  const fillItem = db.prepare("UPDATE items SET image_url = ? WHERE id = ? AND (image_url IS NULL OR image_url = '')");
   const fillBranch = db.prepare(
     "UPDATE branches SET logo_url = ?, receipt_logo_url = ?, currency = COALESCE(currency, ?), tax_rate = COALESCE(tax_rate, ?), timezone = COALESCE(timezone, ?), country = COALESCE(country, ?) WHERE id = ?",
   );
   const selBranch = db.prepare("SELECT * FROM branches WHERE name = ?");
   const insUser = db.prepare("INSERT OR IGNORE INTO users (username, password_hash, role, branch_id) VALUES (?, ?, ?, ?)");
   const insItem = db.prepare(
-    "INSERT OR IGNORE INTO items (name, price, cost_price, stock, sku, category_id, branch_id, low_stock_threshold) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT OR IGNORE INTO items (name, price, cost_price, stock, sku, category_id, branch_id, low_stock_threshold, image_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
   );
   const selItem = db.prepare("SELECT * FROM items WHERE sku = ?");
   const insCustomer = db.prepare("INSERT INTO customers (name, phone, email, address) VALUES (?, ?, ?, ?)");
@@ -361,14 +362,20 @@ function seedDemoData(): { branches: number; items: number; users: number; sales
       for (const [name, price, cost, stock, sku] of b.items) {
         const existing = selItem.get(sku) as any;
         if (existing) {
+          if (!existing.image_url) {
+            fillItem.run(`/demo/products/${sku.toLowerCase()}.svg`, existing.id);
+            existing.image_url = `/demo/products/${sku.toLowerCase()}.svg`;
+          }
           itemIds.push(existing);
           continue;
         }
         const categoryName = sku.includes("BEV") ? "Beverages" : sku.includes("FOD") || sku.includes("FRZ") || sku.includes("CAN") ? "Food" : sku.includes("HOM") ? "Household" : sku.includes("PCA") ? "Personal Care" : "Electronics";
         const cat = selCategory.get(categoryName) as any;
-        insItem.run(name, price, cost, stock, sku, cat?.id ?? null, branch.id, Math.max(5, Math.round(stock * 0.15)));
+        insItem.run(name, price, cost, stock, sku, cat?.id ?? null, branch.id, Math.max(5, Math.round(stock * 0.15)), `/demo/products/${sku.toLowerCase()}.svg`);
         const created = selItem.get(sku) as any;
         if (created) {
+          fillItem.run(`/demo/products/${sku.toLowerCase()}.svg`, created.id);
+          created.image_url = `/demo/products/${sku.toLowerCase()}.svg`;
           itemIds.push(created);
           result.items += 1;
         }
@@ -915,8 +922,11 @@ app.delete("/api/categories/:id", requireAuth, requireRole("admin"), (req, res) 
 // Items
 // ---------------------------------------------------------------------------
 app.get("/api/items", requireAuth, (req, res) => {
-  // A branch user sees shared items plus their own store's catalogue.
-  const branchId = (req.user as any)?.branch_id ?? null;
+  // A branch user sees shared items plus their own store's catalogue. An admin
+  // without a branch sees everything, or one store's catalogue via ?branch_id=.
+  const requested = req.query.branch_id ? Number(req.query.branch_id) : null;
+  const own = (req.user as any)?.branch_id ?? null;
+  const branchId = own ?? requested;
   const items = db
     .prepare(`SELECT items.*, categories.name as category_name FROM items LEFT JOIN categories ON items.category_id = categories.id
       WHERE (? IS NULL OR items.branch_id IS NULL OR items.branch_id = ?) ORDER BY items.name`)
@@ -1319,7 +1329,12 @@ app.get("/api/reports/sales", requireAuth, (req, res) => {
 });
 
 app.get("/api/reports/inventory", requireAuth, (req, res) => {
-  const items = db.prepare(`SELECT items.*, categories.name as category_name FROM items LEFT JOIN categories ON items.category_id = categories.id ORDER BY items.name`).all() as any[];
+  const requested = req.query.branch_id ? Number(req.query.branch_id) : null;
+  const branchId = (req.user as any)?.branch_id ?? requested;
+  const items = db
+    .prepare(`SELECT items.*, categories.name as category_name FROM items LEFT JOIN categories ON items.category_id = categories.id
+      WHERE (? IS NULL OR items.branch_id IS NULL OR items.branch_id = ?) ORDER BY items.name`)
+    .all(branchId, branchId) as any[];
   const itemsWithValuation = items.map((item) => {
     const qty = Number(item.stock) || 0;
     const cost = Number(item.cost_price) || 0;
@@ -1411,14 +1426,28 @@ app.get("/api/dashboard", requireAuth, (req, res) => {
   const targetDate = new Date().toISOString().split("T")[0];
   const { filter, extra } = reportTime("timestamp", "day");
   const { sql, has } = scopedBranches(req.user!);
+  const requested = req.query.branch_id ? Number(req.query.branch_id) : null;
   const params: any[] = [...extra, targetDate];
-  const dayWhere = `${filter} ${has ? "AND " + sql : ""}`;
-  if (has) params.push(req.user!.branch_id);
+  let dayWhere = filter;
+  if (has) {
+    dayWhere += ` AND ${sql}`;
+    params.push(req.user!.branch_id);
+  } else if (requested) {
+    dayWhere += " AND branch_id = ?";
+    params.push(requested);
+  }
 
   const day = db.prepare(`SELECT COALESCE(SUM(CASE WHEN status = 'completed' OR status IS NULL THEN total ELSE 0 END),0) as revenue, COUNT(*) as transactions FROM sales WHERE ${dayWhere}`).get(...params) as any;
 
-  const lowStock = db.prepare(`SELECT COUNT(*) as c FROM items WHERE stock <= low_stock_threshold`).get() as { c: number };
-  const outStock = db.prepare(`SELECT COUNT(*) as c FROM items WHERE stock <= 0`).get() as { c: number };
+  // Stock counts follow the same branch scope, otherwise an admin switching
+  // companies would still see the other store's low-stock count.
+  const itemBranch = (req.user as any)?.branch_id ?? requested;
+  const lowStock = db
+    .prepare(`SELECT COUNT(*) as c FROM items WHERE stock <= low_stock_threshold AND (? IS NULL OR branch_id IS NULL OR branch_id = ?)`)
+    .get(itemBranch, itemBranch) as { c: number };
+  const outStock = db
+    .prepare(`SELECT COUNT(*) as c FROM items WHERE stock <= 0 AND (? IS NULL OR branch_id IS NULL OR branch_id = ?)`)
+    .get(itemBranch, itemBranch) as { c: number };
 
   res.json({
     today_revenue: round2(day.revenue || 0),

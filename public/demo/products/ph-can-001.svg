@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160" role="img" aria-label="Canned Sardines 150g">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#EF4444"/>
+      <stop offset="100%" stop-color="#991B1B"/>
+    </linearGradient>
+  </defs>
+  <rect width="160" height="160" fill="url(#g)"/>
+  <circle cx="130" cy="26" r="44" fill="#fff" fill-opacity=".08"/>
+  <rect x="50" y="52" width="60" height="48" rx="8" fill="#fff" fill-opacity=".92"/><ellipse cx="80" cy="52" rx="30" ry="9" fill="#fff" fill-opacity=".7"/><rect x="60" y="68" width="40" height="7" rx="3.5" fill="#000" fill-opacity=".18"/>
+  <rect x="10" y="112" width="140" height="40" rx="8" fill="#000" fill-opacity=".26"/>
+  <text x="80" y="129" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#fff">Canned Sardines 150g</text>
+  <text x="80" y="145" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#fff"></text>
+</svg>
