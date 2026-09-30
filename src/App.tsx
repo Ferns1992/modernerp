@@ -2917,8 +2917,6 @@ export default function App() {
   const [reportType, setReportType] = useState<'day' | 'month' | 'year'>('day');
   const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
   const [reportBranchId, setReportBranchId] = useState<number | ''>('');
-  // Keep the report filter in step with the company chosen in the app bar.
-  useEffect(() => { if (isAdmin) setReportBranchId(activeBranchId ?? ''); }, [activeBranchId, isAdmin]);
 
   const [isPrinting, setIsPrinting] = useState(false);
 
@@ -2945,6 +2943,8 @@ export default function App() {
     return saved ? Number(saved) : null;
   });
   const isAdmin = currentUser?.role === 'admin';
+  // Keep the report filter in step with the company chosen in the app bar.
+  useEffect(() => { if (isAdmin) setReportBranchId(activeBranchId ?? ''); }, [activeBranchId, isAdmin]);
   const effectiveBranchId = isAdmin ? activeBranchId : currentUser?.branch_id ?? null;
   const activeBranch = useMemo(
     () => (effectiveBranchId ? branches.find((b) => b.id === effectiveBranchId) || null : null),
