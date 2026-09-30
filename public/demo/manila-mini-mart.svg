@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240" role="img" aria-label="Manila Mini Mart">
+  <defs>
+    <linearGradient id="mmmBlue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0EA5E9"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </linearGradient>
+  </defs>
+  <rect x="12" y="12" width="216" height="216" rx="48" fill="url(#mmmBlue)"/>
+  <rect x="24" y="24" width="192" height="192" rx="38" fill="none" stroke="#E0F2FE" stroke-opacity="0.35" stroke-width="2"/>
+  <g fill="#FDE047">
+    <circle cx="120" cy="92" r="19"/>
+    <g stroke="#FDE047" stroke-width="5" stroke-linecap="round">
+      <path d="M120 60v-11M120 124v11M88 92H77M163 92h-11M97 69l-8-8M143 115l8 8M143 69l8-8M97 115l-8 8"/>
+    </g>
+  </g>
+  <g fill="#F8FAFC" opacity="0.95">
+    <path d="M70 128h100a6 6 0 0 1 6 6v10H64v-10a6 6 0 0 1 6-6z"/>
+    <rect x="64" y="148" width="112" height="8" rx="4"/>
+    <rect x="64" y="162" width="112" height="8" rx="4"/>
+  </g>
+  <text x="120" y="206" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#F8FAFC" letter-spacing="4">MANILA</text>
+</svg>

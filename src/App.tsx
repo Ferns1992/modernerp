@@ -1337,7 +1337,7 @@ const SettingsPanel = ({ settings, onUpdate, currentUser }: { settings: Settings
 /** A kitchen order: the `status` field carries the preparation state, not the
  *  sale state, so it needs a wider union than Sale.status. */
 type KitchenOrder = Omit<Sale, 'status'> & {
-  status?: 'pending' | 'preparing' | 'ready' | 'delivered' | 'completed';
+  status?: 'pending' | 'preparing' | 'ready' | 'delivered' | 'completed' | 'refunded' | 'voided';
 };
 
 const KDSPanel = ({ orders, onUpdateStatus, currentUser, isSoundEnabled, setIsSoundEnabled, onTestSound, onRefresh }: { 
@@ -1521,6 +1521,9 @@ const AdminPanel = ({ onUpdatePaymentMethods, currentUser }: { onUpdatePaymentMe
   const [newBranchContact, setNewBranchContact] = useState('');
   const [newBranchVatId, setNewBranchVatId] = useState('');
   const [newBranchTaxRate, setNewBranchTaxRate] = useState('');
+  const [newBranchCurrency, setNewBranchCurrency] = useState('₱');
+  const [newBranchCountry, setNewBranchCountry] = useState('');
+  const [newBranchTimezone, setNewBranchTimezone] = useState('');
   const [branchError, setBranchError] = useState('');
   const [editingBranch, setEditingBranch] = useState<any>(null);
   const [editBranchName, setEditBranchName] = useState('');
@@ -1637,7 +1640,7 @@ const AdminPanel = ({ onUpdatePaymentMethods, currentUser }: { onUpdatePaymentMe
           'Content-Type': 'application/json',
           'X-Username': currentUser?.username || 'System'
         },
-        body: JSON.stringify({ name: newBranchName, address: newBranchAddress, contact: newBranchContact, vat_id: newBranchVatId, tax_rate: newBranchTaxRate }),
+        body: JSON.stringify({ name: newBranchName, address: newBranchAddress, contact: newBranchContact, vat_id: newBranchVatId, tax_rate: newBranchTaxRate, currency: newBranchCurrency, country: newBranchCountry, timezone: newBranchTimezone }),
       });
       
       if (res.ok) {
@@ -1646,6 +1649,8 @@ const AdminPanel = ({ onUpdatePaymentMethods, currentUser }: { onUpdatePaymentMe
         setNewBranchContact('');
         setNewBranchVatId('');
         setNewBranchTaxRate('');
+        setNewBranchCountry('');
+        setNewBranchTimezone('');
         fetchBranches();
       } else {
         const data = await res.json();
@@ -1939,6 +1944,41 @@ const AdminPanel = ({ onUpdatePaymentMethods, currentUser }: { onUpdatePaymentMe
               className="input w-full text-sm"
               value={newBranchVatId}
               onChange={(e) => setNewBranchVatId(e.target.value)}
+            />
+          </div>
+          <div className="flex-1">
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 tracking-wider">Currency</label>
+            <select
+              className="input w-full text-sm"
+              value={newBranchCurrency}
+              onChange={(e) => setNewBranchCurrency(e.target.value)}
+            >
+              <option value="₱">₱ PHP</option>
+              <option value="₹">₹ INR</option>
+              <option value="$">$ USD</option>
+              <option value="€">€ EUR</option>
+              <option value="£">£ GBP</option>
+              <option value="SGD">SGD</option>
+            </select>
+          </div>
+          <div className="flex-1">
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 tracking-wider">Country</label>
+            <input
+              type="text"
+              placeholder="e.g. Philippines"
+              className="input w-full text-sm"
+              value={newBranchCountry}
+              onChange={(e) => setNewBranchCountry(e.target.value)}
+            />
+          </div>
+          <div className="flex-1">
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 tracking-wider">Timezone</label>
+            <input
+              type="text"
+              placeholder="e.g. Asia/Manila"
+              className="input w-full text-sm"
+              value={newBranchTimezone}
+              onChange={(e) => setNewBranchTimezone(e.target.value)}
             />
           </div>
           <div className="flex-1">

@@ -228,6 +228,7 @@ const DEMO_PASSWORD = process.env.DEMO_PASSWORD || "Demo@12345";
 type DemoBranch = {
   key: string;
   name: string;
+  logo_url: string;
   country: string;
   address: string;
   contact: string;
@@ -243,6 +244,7 @@ const DEMO_BRANCHES: DemoBranch[] = [
   {
     key: "in",
     name: "Saffron Retail LLP",
+    logo_url: "/demo/saffron-retail.svg",
     country: "India",
     address: "14 Brigade Road, Bengaluru, Karnataka 560001",
     contact: "+91 80 4123 8890",
@@ -268,6 +270,7 @@ const DEMO_BRANCHES: DemoBranch[] = [
   {
     key: "ph",
     name: "Manila Mini Mart",
+    logo_url: "/demo/manila-mini-mart.svg",
     country: "Philippines",
     address: "221 SM North Avenue, Quezon City, 1100",
     contact: "+63 2 8123 4567",
@@ -301,7 +304,10 @@ function seedDemoData(): { branches: number; items: number; users: number; sales
   const insCategory = db.prepare("INSERT OR IGNORE INTO categories (name) VALUES (?)");
   const selCategory = db.prepare("SELECT id FROM categories WHERE name = ?");
   const insBranch = db.prepare(
-    "INSERT OR IGNORE INTO branches (name, address, contact, vat_id, currency, tax_rate, timezone, country) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT OR IGNORE INTO branches (name, address, contact, vat_id, currency, tax_rate, timezone, country, logo_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+  );
+  const fillBranch = db.prepare(
+    "UPDATE branches SET logo_url = ?, currency = COALESCE(currency, ?), tax_rate = COALESCE(tax_rate, ?), timezone = COALESCE(timezone, ?), country = COALESCE(country, ?) WHERE id = ?",
   );
   const selBranch = db.prepare("SELECT * FROM branches WHERE name = ?");
   const insUser = db.prepare("INSERT OR IGNORE INTO users (username, password_hash, role, branch_id) VALUES (?, ?, ?, ?)");
@@ -326,9 +332,10 @@ function seedDemoData(): { branches: number; items: number; users: number; sales
     DEMO_CATEGORIES.forEach((c) => insCategory.run(c));
 
     for (const b of DEMO_BRANCHES) {
-      insBranch.run(b.name, b.address, b.contact, b.vat_id, b.currency, b.tax_rate, b.timezone, b.country);
+      insBranch.run(b.name, b.address, b.contact, b.vat_id, b.currency, b.tax_rate, b.timezone, b.country, b.logo_url);
       const branch = selBranch.get(b.name) as any;
       if (!branch) continue;
+      fillBranch.run(b.logo_url, b.currency, b.tax_rate, b.timezone, b.country, branch.id);
       result.branches += 1;
 
       // Staff for this branch.
