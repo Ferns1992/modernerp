@@ -381,12 +381,8 @@ function tzParams() {
 }
 
 // ---------------------------------------------------------------------------
-// Welcome & health
+// Health
 // ---------------------------------------------------------------------------
-app.get("/", (_req, res) => {
-  res.json({ name: "modernerp", status: "ok", time: new Date().toISOString() });
-});
-
 app.get("/api/health", (_req, res) => {
   try {
     db.prepare("SELECT 1").get();
