@@ -925,14 +925,14 @@ const CompanySwitcher = ({ branches, activeBranchId, onChange, currency, taxRate
   </div>
 );
 
-const Dashboard = ({ settings, onQuickAdd, branchQuery = '' }: { settings: Settings, onQuickAdd: () => void; branchQuery?: string }) => {
+const Dashboard = ({ settings, onQuickAdd, branchQuery = '', branchQueryLead = '' }: { settings: Settings, onQuickAdd: () => void, branchQuery?: string, branchQueryLead?: string }) => {
   const [data, setData] = useState<{ today_revenue: number; today_transactions: number; low_stock_count: number; out_of_stock_count: number } | null>(null);
   const [recent, setRecent] = useState<Sale[]>([]);
   const currency = settings.currency || '₱';
 
   const load = async () => {
     try {
-      const res = await fetch(`/api/dashboard${branchQuery}`);
+      const res = await fetch(`/api/dashboard${branchQueryLead}`);
       if (res.ok) setData(await res.json());
       const date = new Date().toISOString().split('T')[0];
       const sres = await fetch(`/api/reports/sales?type=day&date=${date}${branchQuery}`);
@@ -3192,7 +3192,7 @@ export default function App() {
 
   const fetchInventoryReport = async () => {
     try {
-      const res = await fetch(`/api/reports/inventory${branchQuery}`);
+      const res = await fetch(`/api/reports/inventory${branchQueryLead}`);
       if (res.ok) {
         const data = await res.json();
         setInventoryReportData(data);
@@ -4112,7 +4112,7 @@ export default function App() {
 
           <AnimatePresence mode="wait">
           {activeTab === 'dashboard' && (
-            <Dashboard settings={settings} onQuickAdd={() => setActiveTab('inventory')} branchQuery={branchQuery} />
+            <Dashboard settings={settings} onQuickAdd={() => setActiveTab('inventory')} branchQuery={branchQuery} branchQueryLead={branchQueryLead} />
           )}
           {activeTab === 'admin' && currentUser?.role === 'admin' && (
              <div className="p-4 lg:p-8 space-y-8">

@@ -16,7 +16,9 @@
     "clean": "rm -rf dist dist-server",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
-    "test:receipt": "node scripts/check-receipt.mjs"
+    "test:receipt": "node scripts/check-receipt.mjs",
+    "test:branch-queries": "node scripts/check-branch-queries.mjs",
+    "test": "npm run typecheck && npm run test:branch-queries && npm run test:receipt"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.14",
