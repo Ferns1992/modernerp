@@ -442,7 +442,7 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, currentUser, settings, isO
 };
 
 // --- Receipt Component ---
-const Receipt = ({ sale, items, settings, branches = [] }: { sale: any, items: any[], settings: Settings, branches?: any[] }) => {
+export const Receipt = ({ sale, items, settings, branches = [] }: { sale: any, items: any[], settings: Settings, branches?: any[] }) => {
   const saleDate = sale.timestamp ? new Date(sale.timestamp) : new Date();
   const branch = branches.find(b => b.id === sale.branch_id);
   const taxRate = branch?.tax_rate ? parseFloat(branch.tax_rate) : (parseFloat(settings.tax_rate) || 0);
