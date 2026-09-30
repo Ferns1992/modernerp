@@ -1264,12 +1264,25 @@ app.get("/api/db/backup", requireAuth, requireRole("admin"), (_req, res) => {
 // ---------------------------------------------------------------------------
 app.use("/uploads", express.static(uploadDir));
 if (isProd) {
-  const distDir = path.join(__dirname, "dist");
-  app.use(express.static(distDir));
-  app.get("*", (req, res) => {
-    if (req.path.startsWith("/api/")) return res.status(404).json({ error: "Not found" });
-    res.sendFile(path.join(distDir, "index.html"));
-  });
+  // The bundle lives in dist-server/, so __dirname is not the project root in
+  // production. Resolve the client build: env override, then next to the
+  // bundle, then the working directory (tsx dev / Docker /app).
+  const distCandidates = [
+    process.env.STATIC_DIR,
+    path.join(__dirname, "dist"),
+    path.join(process.cwd(), "dist"),
+  ].filter((p): p is string => !!p);
+  const distDir = distCandidates.find((p) => fs.existsSync(path.join(p, "index.html")));
+  if (!distDir) {
+    console.error(`[modernerp] Could not find built frontend. Looked in: ${distCandidates.join(", ")}`);
+  } else {
+    console.log(`[modernerp] Serving frontend from ${distDir}`);
+    app.use(express.static(distDir));
+    app.get("*", (req, res) => {
+      if (req.path.startsWith("/api/")) return res.status(404).json({ error: "Not found" });
+      res.sendFile(path.join(distDir, "index.html"));
+    });
+  }
 } else {
   // Development: Vite middleware with an SPA fallback that never shadows /api.
   import("vite").then(({ createServer: createViteServer }) => {
