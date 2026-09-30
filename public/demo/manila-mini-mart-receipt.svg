@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 150" width="480" height="150" role="img" aria-label="Manila Mini Mart receipt header">
+  <defs>
+    <linearGradient id="lhMmm" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#0EA5E9"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="480" height="6" fill="url(#lhMmm)"/>
+  <g transform="translate(18 26)">
+    <rect width="96" height="96" rx="22" fill="url(#lhMmm)"/>
+    <circle cx="48" cy="38" r="15" fill="#FDE047"/>
+    <g stroke="#FDE047" stroke-width="4" stroke-linecap="round">
+      <path d="M48 18v-8M48 66v8M28 38h-8M76 38h-8M34 24l-6-6M62 52l6 6M62 24l6-6M34 52l-6 6"/>
+    </g>
+    <text x="48" y="82" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="16" font-weight="700" fill="#F8FAFC">MMM</text>
+  </g>
+  <text x="132" y="60" font-family="Georgia, 'Times New Roman', serif" font-size="34" font-weight="700" fill="#111827">Manila Mini Mart</text>
+  <text x="133" y="88" font-family="Helvetica, Arial, sans-serif" font-size="17" font-weight="600" fill="#1D4ED8" letter-spacing="4">QUEZON CITY</text>
+  <text x="133" y="112" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#4B5563">VAT Reg. 123-456-789-00001</text>
+  <rect x="0" y="144" width="480" height="6" fill="url(#lhMmm)"/>
+</svg>

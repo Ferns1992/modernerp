@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 150" width="480" height="150" role="img" aria-label="Saffron Retail LLP receipt header">
+  <defs>
+    <linearGradient id="lhSaffron" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#F59E0B"/>
+      <stop offset="60%" stop-color="#EA580C"/>
+      <stop offset="100%" stop-color="#B91C1C"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="480" height="6" fill="url(#lhSaffron)"/>
+  <g transform="translate(18 26)">
+    <rect width="96" height="96" rx="22" fill="url(#lhSaffron)"/>
+    <text x="48" y="62" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="40" font-weight="700" fill="#FFF7ED">SR</text>
+  </g>
+  <text x="132" y="60" font-family="Georgia, 'Times New Roman', serif" font-size="34" font-weight="700" fill="#111827">Saffron Retail</text>
+  <text x="133" y="88" font-family="Helvetica, Arial, sans-serif" font-size="17" font-weight="600" fill="#EA580C" letter-spacing="4">RETAIL LLP</text>
+  <text x="133" y="112" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#4B5563">Bengaluru, Karnataka &#183; GSTIN 29AAECS1234F1Z5</text>
+  <rect x="0" y="144" width="480" height="6" fill="url(#lhSaffron)"/>
+</svg>

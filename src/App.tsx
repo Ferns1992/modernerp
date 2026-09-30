@@ -457,6 +457,12 @@ const Receipt = ({ sale, items, settings, branches = [] }: { sale: any, items: a
     fontStyle === 'bold' ? 'font-bold' : 
     fontStyle === 'condensed' ? 'tracking-tighter' : '';
 
+  // India prints GST, the Philippines prints VAT; the demo branches each
+  // carry their own rate, so the label cannot be hardcoded.
+  const taxLabel = String(branch?.country || (settings as any).country || '').toLowerCase().includes('india') ? 'GST' : 'VAT';
+  const receiptName = branch?.name || settings.company_name || 'MODERN STORE';
+  const receiptLogo = branch?.receipt_logo_url || null;
+
   // Simulate density with opacity and weight
   const densityStyles = {
     opacity: printDensity <= 3 ? 0.6 + (printDensity * 0.13) : 1,
@@ -469,13 +475,16 @@ const Receipt = ({ sale, items, settings, branches = [] }: { sale: any, items: a
       style={densityStyles}
     >
       <div className="text-center mb-2">
-        {(branch?.logo_url || settings.logo_url) && (
+        {receiptLogo ? (
+          <img src={receiptLogo} alt={`${receiptName} letterhead`} className="w-full max-w-[15rem] mx-auto mb-1 object-contain" referrerPolicy="no-referrer" />
+        ) : (branch?.logo_url || settings.logo_url) ? (
           <img src={branch?.logo_url || settings.logo_url} alt="Company Logo" className="w-16 h-16 mx-auto mb-2 object-contain" referrerPolicy="no-referrer" />
-        )}
-        <h2 className="text-lg font-bold uppercase">{branch?.name || settings.company_name || 'MODERN STORE'}</h2>
+        ) : null}
+        <h2 className="text-lg font-bold uppercase">{receiptName}</h2>
         <p>{branch?.address || settings.address || '123 Business Street, City'}</p>
         <p>Tel: {branch?.contact || settings.contact || '+1 234 567 890'}</p>
-        {branch?.vat_id ? <p>VAT ID: {branch.vat_id}</p> : settings.vat_id && <p>VAT ID: {settings.vat_id}</p>}
+        {branch?.vat_id ? <p>{taxLabel} ID: {branch.vat_id}</p> : settings.vat_id && <p>{taxLabel} ID: {settings.vat_id}</p>}
+        <p className="font-bold">{taxLabel} {taxRate}% inclusive/exclusive</p>
       </div>
       
       <div className="border-t border-b border-dashed border-black py-2 mb-2">
@@ -523,7 +532,7 @@ const Receipt = ({ sale, items, settings, branches = [] }: { sale: any, items: a
           <span>{currency}{sale.subtotal?.toFixed(2)}</span>
         </div>
         <div className="flex justify-between">
-          <span>VAT ({taxRate}%):</span>
+          <span>{taxLabel} ({taxRate}%):</span>
           <span>{currency}{sale.tax?.toFixed(2)}</span>
         </div>
         {sale.discount > 0 && (

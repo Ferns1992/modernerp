@@ -41,6 +41,7 @@ db.exec(`
     contact TEXT,
     vat_id TEXT,
     logo_url TEXT,
+    receipt_logo_url TEXT,
     currency TEXT,
     tax_rate REAL,
     timezone TEXT,
@@ -173,6 +174,7 @@ ensureColumn("users", "branch_id", "ALTER TABLE users ADD COLUMN branch_id INTEG
 ensureColumn("users", "created_at", "ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP");
 ensureColumn("branches", "vat_id", "ALTER TABLE branches ADD COLUMN vat_id TEXT");
 ensureColumn("branches", "logo_url", "ALTER TABLE branches ADD COLUMN logo_url TEXT");
+ensureColumn("branches", "receipt_logo_url", "ALTER TABLE branches ADD COLUMN receipt_logo_url TEXT");
 ensureColumn("branches", "currency", "ALTER TABLE branches ADD COLUMN currency TEXT");
 ensureColumn("branches", "tax_rate", "ALTER TABLE branches ADD COLUMN tax_rate REAL");
 ensureColumn("branches", "timezone", "ALTER TABLE branches ADD COLUMN timezone TEXT");
@@ -235,6 +237,7 @@ type DemoBranch = {
   key: string;
   name: string;
   logo_url: string;
+  receipt_logo_url: string;
   country: string;
   address: string;
   contact: string;
@@ -251,6 +254,7 @@ const DEMO_BRANCHES: DemoBranch[] = [
     key: "in",
     name: "Saffron Retail LLP",
     logo_url: "/demo/saffron-retail.svg",
+    receipt_logo_url: "/demo/saffron-retail-receipt.svg",
     country: "India",
     address: "14 Brigade Road, Bengaluru, Karnataka 560001",
     contact: "+91 80 4123 8890",
@@ -277,6 +281,7 @@ const DEMO_BRANCHES: DemoBranch[] = [
     key: "ph",
     name: "Manila Mini Mart",
     logo_url: "/demo/manila-mini-mart.svg",
+    receipt_logo_url: "/demo/manila-mini-mart-receipt.svg",
     country: "Philippines",
     address: "221 SM North Avenue, Quezon City, 1100",
     contact: "+63 2 8123 4567",
@@ -310,10 +315,10 @@ function seedDemoData(): { branches: number; items: number; users: number; sales
   const insCategory = db.prepare("INSERT OR IGNORE INTO categories (name) VALUES (?)");
   const selCategory = db.prepare("SELECT id FROM categories WHERE name = ?");
   const insBranch = db.prepare(
-    "INSERT OR IGNORE INTO branches (name, address, contact, vat_id, currency, tax_rate, timezone, country, logo_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT OR IGNORE INTO branches (name, address, contact, vat_id, currency, tax_rate, timezone, country, logo_url, receipt_logo_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
   );
   const fillBranch = db.prepare(
-    "UPDATE branches SET logo_url = ?, currency = COALESCE(currency, ?), tax_rate = COALESCE(tax_rate, ?), timezone = COALESCE(timezone, ?), country = COALESCE(country, ?) WHERE id = ?",
+    "UPDATE branches SET logo_url = ?, receipt_logo_url = ?, currency = COALESCE(currency, ?), tax_rate = COALESCE(tax_rate, ?), timezone = COALESCE(timezone, ?), country = COALESCE(country, ?) WHERE id = ?",
   );
   const selBranch = db.prepare("SELECT * FROM branches WHERE name = ?");
   const insUser = db.prepare("INSERT OR IGNORE INTO users (username, password_hash, role, branch_id) VALUES (?, ?, ?, ?)");
@@ -338,10 +343,10 @@ function seedDemoData(): { branches: number; items: number; users: number; sales
     DEMO_CATEGORIES.forEach((c) => insCategory.run(c));
 
     for (const b of DEMO_BRANCHES) {
-      insBranch.run(b.name, b.address, b.contact, b.vat_id, b.currency, b.tax_rate, b.timezone, b.country, b.logo_url);
+      insBranch.run(b.name, b.address, b.contact, b.vat_id, b.currency, b.tax_rate, b.timezone, b.country, b.logo_url, b.receipt_logo_url);
       const branch = selBranch.get(b.name) as any;
       if (!branch) continue;
-      fillBranch.run(b.logo_url, b.currency, b.tax_rate, b.timezone, b.country, branch.id);
+      fillBranch.run(b.logo_url, b.receipt_logo_url, b.currency, b.tax_rate, b.timezone, b.country, branch.id);
       result.branches += 1;
 
       // Staff for this branch.
@@ -821,12 +826,12 @@ app.get("/api/branches", requireAuth, (_req, res) => {
 });
 
 app.post("/api/branches", requireAuth, requireRole("admin"), (req, res) => {
-  const { name, address, contact, vat_id, currency, tax_rate, timezone, country } = req.body || {};
+  const { name, address, contact, vat_id, currency, tax_rate, timezone, country, receipt_logo_url } = req.body || {};
   if (!name) return res.status(400).json({ error: "Name is required" });
   try {
     const info = db
-      .prepare("INSERT INTO branches (name, address, contact, vat_id, currency, tax_rate, timezone, country) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-      .run(name, address || null, contact || null, vat_id || null, currency || null, tax_rate != null && tax_rate !== "" ? Number(tax_rate) : null, timezone || null, country || null);
+      .prepare("INSERT INTO branches (name, address, contact, vat_id, currency, tax_rate, timezone, country, receipt_logo_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(name, address || null, contact || null, vat_id || null, currency || null, tax_rate != null && tax_rate !== "" ? Number(tax_rate) : null, timezone || null, country || null, receipt_logo_url || null);
     logEdit("branches", Number(info.lastInsertRowid), "CREATE", `Branch ${name} added`, req.user!.username);
     res.json(db.prepare("SELECT * FROM branches WHERE id = ?").get(Number(info.lastInsertRowid)));
   } catch {
@@ -845,7 +850,7 @@ app.post("/api/branches/:id/logo", requireAuth, requireRole("admin"), uploadSing
 
 app.put("/api/branches/:id", requireAuth, requireRole("admin"), (req, res) => {
   const { id } = req.params;
-  const { name, address, contact, vat_id, logo_url, currency, tax_rate, timezone, country } = req.body || {};
+  const { name, address, contact, vat_id, logo_url, currency, tax_rate, timezone, country, receipt_logo_url } = req.body || {};
   if (!name) return res.status(400).json({ error: "Name is required" });
   const old = db.prepare("SELECT * FROM branches WHERE id = ?").get(id) as any;
   if (!old) return res.status(404).json({ error: "Branch not found" });
@@ -854,7 +859,7 @@ app.put("/api/branches/:id", requireAuth, requireRole("admin"), (req, res) => {
       `UPDATE branches SET name = ?, address = ?, contact = ?, vat_id = ?,
        currency = COALESCE(?, currency), tax_rate = COALESCE(?, tax_rate),
        timezone = COALESCE(?, timezone), country = COALESCE(?, country),
-       logo_url = COALESCE(?, logo_url) WHERE id = ?`,
+       logo_url = COALESCE(?, logo_url), receipt_logo_url = COALESCE(?, receipt_logo_url) WHERE id = ?`,
     )
     .run(
       name,
@@ -866,6 +871,7 @@ app.put("/api/branches/:id", requireAuth, requireRole("admin"), (req, res) => {
       timezone || null,
       country || null,
       logo_url || null,
+      receipt_logo_url || null,
       id,
     );
   logEdit("branches", Number(id), "UPDATE", `Branch ${name} updated`, req.user!.username);
