@@ -1,86 +1,72 @@
 # Modern ERP & Inventory Management System
 
-A full-stack, responsive Enterprise Resource Planning (ERP) and Inventory Management system built with React, Express, and SQLite. Designed for small to medium-sized businesses, it features real-time kitchen displays, automated reporting, and offline-first capabilities.
+A full-stack, responsive Enterprise Resource Planning (ERP) and Inventory Management system built with React, Express, and SQLite. Designed for small to medium-sized businesses, it features a real-time Kitchen Display System (KDS), automated reporting, offline-first POS, and multiple roles (Admin, Cashier, Call Center, KDS).
 
-## 🚀 Key Features
+## Tech Stack
 
-- **Point of Sale (POS):** Fast, intuitive checkout interface with cart management and multiple payment methods.
-- **Inventory Management:** Track stock levels, manage categories, and receive low-stock alerts.
-- **Kitchen Display System (KDS):** Real-time order tracking for kitchen staff with **audible alerts** for new orders.
-- **Reporting & Analytics:** Generate sales reports, inventory summaries, and export data to PDF or CSV.
-- **Branch Management:** Support for multiple branches with role-based access control (Admin, Cashier, KDS).
-- **Offline Support:** Local data persistence and synchronization when back online.
-- **Dark Mode:** Fully responsive UI with seamless dark/light mode switching.
+- **Frontend:** React 19, Vite, Tailwind CSS 4, Lucide Icons, Motion.
+- **Backend:** Node.js 22, Express, SQLite (`better-sqlite3`, WAL mode).
+- **Auth:** Session cookies (HttpOnly), scrypt password hashing, role-based access control, login rate limiting.
+- **Deployment:** multi-stage Docker image (non-root), Docker Compose, cloudflared tunnel.
 
-## 🛠️ Tech Stack
+## Live deployment
 
-- **Frontend:** React 19, Vite, Tailwind CSS, Lucide Icons, Motion (Framer Motion).
-- **Backend:** Node.js, Express.
-- **Database:** SQLite (via `better-sqlite3`) for lightweight, reliable persistence.
-- **Deployment:** Docker & Docker Compose.
+`https://modernerp.sysitadmin.com` — served through a cloudflared tunnel to the container; no host port is exposed publicly. Has three npm scripts: `dev`, `build`, `start`; the Dockerfile runs the built server under a non-root user with a healthcheck on `/api/health`.
 
-## 📦 Deployment
+## Local development
 
-### Using Docker Compose
+```bash
+npm install
+npm run dev
+```
 
-1. Clone the repository.
-2. Run the following command:
-   ```bash
-   docker-compose up -d
-   ```
-3. Access the app at `http://localhost:4000`.
+Production build:
 
-### Using Portainer (Legacy Mode)
+```bash
+npm run build
+npm start
+```
 
-1. Create a new **Stack** in Portainer.
-2. Select **"Repository"** as the build method.
-3. Use your GitHub repository URL.
-4. Set the **"Compose path"** to `docker-compose.yml`.
-5. Click **"Deploy the stack"**.
+## Docker deployment
 
-> [!TIP]
-> This app uses a persistent volume at `./data` on your host to store the `pos.db` database and uploaded images. Make sure the user running Docker has permissions to write to this directory.
+```bash
+docker compose -f docker-compose.yml -f docker-compose.tunnel.yml up -d --build
+```
 
-> [!NOTE]
-> If you still get ingress errors, the `docker-compose.yml` is now configured to use `mode: host` for ports, which bypasses the ingress network.
+- `docker-compose.yml`: loopback-only port publish, persistent named volume `modernerp_data` at `/data`.
+- `docker-compose.tunnel.yml`: attaches the container to the `cloudflared_default` network so the existing tunnel can reach it by container name, with zero host ports.
 
-## 💻 Local Development
+## Environment variables
 
-1. **Install Dependencies:**
-   ```bash
-   npm install
-   ```
-2. **Start Development Server:**
-   ```bash
-   npm run dev
-   ```
-3. **Build for Production:**
-   ```bash
-   npm run build
-   npm start
-   ```
+See `.env.example`. Key values:
 
-## 📄 Environment Variables
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `PORT` | `4000` | HTTP port |
+| `DATABASE_PATH` | `data/pos.db` | SQLite file location |
+| `SESSION_SECRET` | random | cookie signing secret |
+| `SESSION_DAYS` | `7` | session lifetime |
+| `COOKIE_SECURE` | `true` in prod | secure cookies |
+| `ADMIN_USERNAME` | `admin` | seeded admin on first boot |
+| `ADMIN_PASSWORD` | `admin` | seeded admin password on first boot (change immediately) |
+| `LOGIN_MAX` | `10` | max login attempts / 15 min / IP |
+| `TZ_OFFSET_HOURS` | `0` | report timezone offset (use `8` for PHT) |
 
-Define these in a `.env` file or your Docker environment:
-- `PORT`: Port to run the server on (default: 4000).
-- `DATABASE_PATH`: Path to the SQLite database file (default: `pos.db`).
-- `NODE_ENV`: Set to `production` for optimized builds.
+> **IMPORTANT:** The seeded admin password is only applied when the users table is empty. Change it after first login via Admin → Edit User, or with a `PUT /api/users/:id`.
 
-## 🛡️ Security & Access
+## API surface (REST)
 
-The application uses role-based access control. Default roles include:
-- **Admin:** Full access to settings, logs, and reports.
-- **Cashier:** Access to POS and pending orders.
-- **KDS:** Access to the Kitchen Display System.
+Auth: `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout`, `POST /api/auth/register` (admin), `POST /api/auth/change-password`.
+Resources: `branches`, `users`, `categories`, `items`, `sales`, `orders`, `customers`, `payment-methods`, `settings`, `edit-logs`, `reports/*`, `dashboard`, `uploads`.
+Backup: `GET /api/db/export` (JSON), `POST /api/db/import`, `GET /api/db/backup` (binary SQLite snapshot).
+Health: `GET /api/health`.
 
-### Default Credentials
-| Role | Username | Password |
-|------|----------|----------|
-| Admin | `admin` | `admin` |
+## Security & Access
 
-> [!IMPORTANT]
-> It is highly recommended to change the default password immediately after the first login via the Admin settings.
+Default roles: **Admin**, **Cashier**, **Call Center** (creates pending orders), **KDS** (Kitchen Display). The server enforces role guards on every endpoint; the frontend hides gated screens. Password hashes are scrypt; legacy SHA-256 hashes are upgraded on next successful login. Sales totals are recomputed server-side; stock cannot go negative; void/refund restocks automatically and is logged.
+
+Most API endpoints require a valid session cookie. The only public endpoints are `/api/health` and static assets.
 
 ---
-Built with ❤️ for modern businesses.
+
+Built with 💙 for modern businesses.

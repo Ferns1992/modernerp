@@ -288,6 +288,7 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, currentUser, settings, isO
   setNewOrdersCount: (count: number) => void
 }) => {
   const menuItems = [
+    { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { id: 'pos', icon: ShoppingCart, label: 'Checkout' },
     { id: 'inventory', icon: Package, label: 'Inventory' },
     { id: 'inventory_report', icon: FileText, label: 'Inventory Report' },
@@ -853,6 +854,102 @@ const InventoryReport = ({ data, settings, categories }: { data: InventoryReport
                   <td colSpan={7} className="px-6 py-12 text-center text-slate-500">No items found matching the selected filters.</td>
                 </tr>
               )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+// --- Dashboard Component ---
+const Dashboard = ({ settings, onQuickAdd }: { settings: Settings, onQuickAdd: () => void }) => {
+  const [data, setData] = useState<{ today_revenue: number; today_transactions: number; low_stock_count: number; out_of_stock_count: number } | null>(null);
+  const [recent, setRecent] = useState<Sale[]>([]);
+  const currency = settings.currency || '₱';
+
+  const load = async () => {
+    try {
+      const res = await fetch('/api/dashboard');
+      if (res.ok) setData(await res.json());
+      const date = new Date().toISOString().split('T')[0];
+      const sres = await fetch(`/api/reports/sales?type=day&date=${date}`);
+      if (sres.ok) {
+        const sales = await sres.json();
+        setRecent(Array.isArray(sales) ? sales.slice(0, 8) : []);
+      }
+    } catch (err) {
+      console.error('Dashboard load failed:', err);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+  useEffect(() => { const id = setInterval(load, 60000); return () => clearInterval(id); }, []);
+
+  const cards = [
+    { label: "Today's Revenue", value: data ? `${currency}${data.today_revenue.toFixed(2)}` : '—', icon: TrendingUp, color: 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
+    { label: 'Transactions Today', value: data ? String(data.today_transactions) : '—', icon: BarChart3, color: 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' },
+    { label: 'Low Stock Items', value: data ? String(data.low_stock_count) : '—', icon: AlertCircle, color: 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400' },
+    { label: 'Out of Stock', value: data ? String(data.out_of_stock_count) : '—', icon: Package, color: 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400' },
+  ];
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="p-4 lg:p-8 max-w-6xl mx-auto space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Dashboard</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Live store performance at a glance.</p>
+        </div>
+        <button onClick={onQuickAdd} className="btn btn-primary px-5 py-2.5 text-sm font-bold uppercase tracking-widest rounded-xl">
+          + New Item
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {cards.map((c) => (
+          <div key={c.label} className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-100 dark:border-slate-700">
+            <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${c.color}`}>
+              <c.icon size={22} />
+            </div>
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mt-4">{c.label}</p>
+            <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{c.value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6">
+        <h3 className="font-bold text-slate-900 dark:text-white mb-4">Today's Sales</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-slate-400 dark:text-slate-500 text-xs uppercase tracking-wider border-b border-slate-100 dark:border-slate-700">
+                <th className="py-2 px-2">#</th>
+                <th className="py-2 px-2">Payment</th>
+                <th className="py-2 px-2">Status</th>
+                <th className="py-2 px-2">Time</th>
+                <th className="py-2 px-2 text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recent.length === 0 && (
+                <tr><td colSpan={5} className="py-8 text-center text-slate-400">No sales recorded today.</td></tr>
+              )}
+              {recent.map((s) => (
+                <tr key={s.id} className="border-b border-slate-50 dark:border-slate-700/50">
+                  <td className="py-3 px-2 font-semibold text-slate-700 dark:text-slate-200">#{s.id}</td>
+                  <td className="py-3 px-2 uppercase text-slate-500 dark:text-slate-400">{s.payment_method}</td>
+                  <td className="py-3 px-2">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                      s.status === 'completed' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400'
+                      : s.status === 'refunded' ? 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400'
+                      : s.status === 'voided' ? 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400'
+                      : 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400'
+                    }`}>{s.status}</span>
+                  </td>
+                  <td className="py-3 px-2 text-slate-500 dark:text-slate-400">{new Date(s.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                  <td className="py-3 px-2 text-right font-bold text-slate-900 dark:text-white">{currency}{Number(s.total).toFixed(2)}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -2931,11 +3028,31 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    fetch('/api/auth/logout').catch(() => {});
     setIsAuthenticated(false);
     setCurrentUser(null);
     setCart([]);
     setActiveTab('pos');
   };
+
+  // Restore an existing session on page load (cookie may still be valid).
+  useEffect(() => {
+    const restore = async () => {
+      try {
+        const res = await fetch('/api/auth/me');
+        if (res.ok) {
+          const data = await res.json();
+          setIsAuthenticated(true);
+          setCurrentUser({ username: data.username, role: data.role, branch_id: data.branch_id });
+          if (data.role === 'kds') setActiveTab('kds');
+          else if (data.role === 'callcenter') setActiveTab('pending_orders');
+        }
+      } catch (err) {
+        console.warn('Session restore failed:', err);
+      }
+    };
+    restore();
+  }, []);
 
   const fetchItems = async () => {
     const res = await fetch('/api/items');
@@ -3648,6 +3765,9 @@ export default function App() {
           </div>
 
           <AnimatePresence mode="wait">
+          {activeTab === 'dashboard' && (
+            <Dashboard settings={settings} onQuickAdd={() => setActiveTab('inventory')} />
+          )}
           {activeTab === 'admin' && currentUser?.role === 'admin' && (
              <div className="p-4 lg:p-8 space-y-8">
                <AdminPanel onUpdatePaymentMethods={fetchPaymentMethods} currentUser={currentUser} />

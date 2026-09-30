@@ -2,17 +2,30 @@ services:
   modernerp:
     build: .
     image: modernerp:latest
-    ports:
-      - "4000:4000"
-    environment:
-      - NODE_ENV=production
-      - DATABASE_PATH=/data/pos.db
-    volumes:
-      - pos-data:/data
-      - pos-uploads:/tmp/uploads
-    restart: unless-stopped
     container_name: modernerp
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+      DATABASE_PATH: /data/pos.db
+      PORT: "4000"
+    volumes:
+      # Named volume: makes the database permanent. Survives compose down, image
+      # rebuilds, and host reboots.
+      - modernerp_data:/data
+    ports:
+      # Loopback only: never directly reachable from the internet. Served through
+      # the cloudflared tunnel (see docker-compose.tunnel.yml).
+      - "127.0.0.1:4000:4000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/api/health').then(r=>{if(!r.ok)process.exit(1);return r.json()}).then(j=>process.exit(j.db==='ok'?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
 volumes:
-  pos-data:
-  pos-uploads:
+  modernerp_data:
+    name: modernerp_data

@@ -1,0 +1,17 @@
+# Overlay for hosting behind the existing cloudflared tunnel.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.tunnel.yml up -d --build
+#
+# Attaches the app to the cloudflared network so the tunnel can reach it by
+# container name. No host port is published for tunnel traffic, so the app is
+# not exposed to the internet at all.
+services:
+  modernerp:
+    networks:
+      - cloudflared
+    ports: !reset []
+
+networks:
+  cloudflared:
+    external: true
+    name: cloudflared_default
