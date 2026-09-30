@@ -310,8 +310,18 @@ const DEMO_BRANCHES: DemoBranch[] = [
 
 const DEMO_CATEGORIES = ["Beverages", "Food", "Household", "Personal Care", "Electronics"];
 
-function seedDemoData(): { branches: number; items: number; users: number; sales: number } {
-  const result = { branches: 0, items: 0, users: 0, sales: 0 };
+// `withSales: false` re-runs only the reference data and asset backfills. Sales
+// history is guarded per branch, so calling this twice can never double the
+// 14 days of demo sales the way it used to.
+function seedDemoData(opts: { withSales?: boolean } = {}): {
+  branches: number;
+  items: number;
+  users: number;
+  sales: number;
+  sales_skipped: number;
+} {
+  const withSales = opts.withSales !== false;
+  const result = { branches: 0, items: 0, users: 0, sales: 0, sales_skipped: 0 };
   const insCategory = db.prepare("INSERT OR IGNORE INTO categories (name) VALUES (?)");
   const selCategory = db.prepare("SELECT id FROM categories WHERE name = ?");
   const insBranch = db.prepare(
@@ -395,7 +405,14 @@ function seedDemoData(): { branches: number; items: number; users: number; sales
         }
       });
 
-      // 14 days of sales so the reports and dashboard have a trend.
+      // 14 days of sales so the reports and dashboard have a trend. Skipped
+      // when this branch already has generated history, otherwise a second
+      // seed call would silently duplicate every sale and re-deduct stock.
+      const salesMarker = `demo_sales_seeded_branch_${branch.id}`;
+      if (getSetting(salesMarker)) {
+        result.sales_skipped += 1;
+        continue;
+      }
       const methods = ["cash", "card", "gcash"];
       for (let day = 13; day >= 0; day--) {
         const salesToday = 3 + Math.floor(Math.random() * 6);
@@ -427,6 +444,7 @@ function seedDemoData(): { branches: number; items: number; users: number; sales
           result.sales += 1;
         }
       }
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(salesMarker, new Date().toISOString());
     }
   })();
 
@@ -806,10 +824,14 @@ app.post("/api/upload", requireAuth, uploadSingle("image"), (req, res) => {
 // ---------------------------------------------------------------------------
 app.post("/api/admin/seed-demo", requireAuth, requireRole("admin"), (req, res) => {
   try {
-    const r = seedDemoData();
+    // Sales history is the only destructive part of a reseed, so it has to be
+    // asked for explicitly. Without ?sales=1 a repeat call just tops up
+    // reference data and missing images.
+    const wantsSales = req.query.sales === "1" || (req.body && req.body.sales === true);
+    const r = seedDemoData({ withSales: wantsSales });
     db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('demo_seeded_at', ?)").run(new Date().toISOString());
     logEdit("settings", 0, "CREATE", `Demo data seeded: ${r.items} items, ${r.sales} sales`, req.user!.username);
-    res.json({ success: true, ...r, staff_password: DEMO_PASSWORD });
+    res.json({ success: true, ...r, sales_requested: wantsSales, staff_password: DEMO_PASSWORD });
   } catch (err) {
     res.status(500).json({ error: `Seeding failed: ${(err as Error).message}` });
   }
@@ -1596,7 +1618,7 @@ if (isProd) {
 // getSetting, which are declared further down the file. Guarded by a marker
 // setting so restarting the container never duplicates the data.
 if ((process.env.SEED_DEMO || "0") === "1" && !getSetting("demo_seeded_at")) {
-  const r = seedDemoData();
+  const r = seedDemoData({ withSales: true });
   db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('demo_seeded_at', ?)").run(new Date().toISOString());
   console.log(
     `[modernerp] Demo data seeded: ${r.branches} branches, ${r.items} items, ${r.users} users, ${r.sales} sales (staff password: ${DEMO_PASSWORD})`,
